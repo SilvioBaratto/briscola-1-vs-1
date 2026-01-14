@@ -1,325 +1,484 @@
-# Briscola RL: Deep Reinforcement Learning for Italian Card Games
+# Briscola RL
 
-A reinforcement learning system that trains AI agents to play **Briscola**, the classic Italian trick-taking card game. The agent learns optimal strategies through self-play against an LLM-powered opponent using Proximal Policy Optimization (PPO).
+**Deep Reinforcement Learning for the Classic Italian Card Game**
+
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.3+-ee4c2c.svg)](https://pytorch.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
+---
+
+## What is This Project?
+
+This project trains an AI agent to play **Briscola**, Italy's most popular card game, using modern reinforcement learning techniques. The agent learns by playing thousands of games against an LLM-powered opponent, gradually discovering optimal strategies through trial and error.
+
+**Key Features:**
+- Custom PPO (Proximal Policy Optimization) implementation from scratch
+- LLM opponent powered by Ollama for diverse gameplay
+- Full-stack web application to play against the trained AI
+- Comprehensive reward shaping based on Briscola strategy
+
+---
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Theoretical Background](#theoretical-background)
-  - [Proximal Policy Optimization (PPO)](#proximal-policy-optimization-ppo)
-  - [Actor-Critic Architecture](#actor-critic-architecture)
-  - [Generalized Advantage Estimation (GAE)](#generalized-advantage-estimation-gae)
-- [Reward System Design](#reward-system-design)
-- [Game Rules](#game-rules)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-- [Tech Stack](#tech-stack)
+1. [Quick Start](#quick-start)
+2. [How It Works](#how-it-works)
+3. [The Game: Briscola](#the-game-briscola)
+4. [Technical Deep Dive](#technical-deep-dive)
+5. [Web Application](#web-application)
+6. [Project Structure](#project-structure)
+7. [Configuration](#configuration)
+8. [Contributing](#contributing)
 
-## Overview
+---
 
-This project implements a complete pipeline for training RL agents to master Briscola:
-
-1. **Custom Game Engine**: Full implementation of Briscola rules with Italian card mechanics
-2. **PPO Training**: From-scratch implementation of PPO with action masking for invalid moves
-3. **LLM Opponent**: BAML-powered opponent using Ollama for curriculum learning
-4. **Web Interface**: Angular frontend with FastAPI backend for human vs AI gameplay
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Training Pipeline                           │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│   │   Briscola   │     │    PPO       │     │     LLM      │       │
-│   │ Environment  │◄───►│   Agent      │◄───►│   Opponent   │       │
-│   │              │     │              │     │   (Ollama)   │       │
-│   └──────────────┘     └──────────────┘     └──────────────┘       │
-│          │                    │                    │                │
-│          ▼                    ▼                    ▼                │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│   │  Observation │     │ Actor-Critic │     │    BAML      │       │
-│   │   Encoding   │     │   Network    │     │  Functions   │       │
-│   └──────────────┘     └──────────────┘     └──────────────┘       │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Web Application                             │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│   │   Angular    │     │   FastAPI    │     │  RL Agent    │       │
-│   │   Frontend   │◄───►│   Backend    │◄───►│  (Trained)   │       │
-│   │              │     │              │     │              │       │
-│   └──────────────┘     └──────────────┘     └──────────────┘       │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-## Theoretical Background
-
-### Proximal Policy Optimization (PPO)
-
-PPO is a policy gradient method that addresses the challenge of training stability in reinforcement learning. The key innovation is the **clipped surrogate objective** that prevents destructively large policy updates.
-
-#### The Objective Function
-
-```
-L^CLIP(θ) = E_t [ min(r_t(θ) * A_t, clip(r_t(θ), 1-ε, 1+ε) * A_t) ]
-```
-
-Where:
-- `r_t(θ) = π_θ(a_t|s_t) / π_θ_old(a_t|s_t)` is the probability ratio
-- `A_t` is the advantage estimate
-- `ε` is the clipping parameter (default: 0.2)
-
-#### Why PPO Works for Briscola
-
-1. **Stable Learning**: Card games have high variance in outcomes; PPO's clipping prevents catastrophic forgetting
-2. **Sample Efficiency**: Each game provides multiple training samples (one per trick)
-3. **Action Masking**: PPO handles invalid actions gracefully through logit masking
-
-### Actor-Critic Architecture
-
-The network uses a shared feature extractor with separate policy (actor) and value (critic) heads:
-
-```
-                    ┌─────────────────┐
-                    │  Observation    │
-                    │   (245 dims)    │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  Shared MLP     │
-                    │  (2 layers)     │
-                    │  ReLU activation│
-                    └────────┬────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              │                             │
-     ┌────────▼────────┐           ┌────────▼────────┐
-     │   Actor Head    │           │   Critic Head   │
-     │  (Policy π)     │           │   (Value V)     │
-     │                 │           │                 │
-     │  Output: 3      │           │  Output: 1      │
-     │  (card indices) │           │  (state value)  │
-     └─────────────────┘           └─────────────────┘
-```
-
-#### Observation Space (245 dimensions)
-
-| Component | Dimensions | Description |
-|-----------|------------|-------------|
-| Hand encoding | 120 | 3 slots × 40 cards (one-hot) |
-| Trump suit | 4 | One-hot encoded briscola suit |
-| Played cards | 40 | Binary mask of cards seen |
-| Current trick | 40 | Opponent's card if responding |
-| Score differential | 1 | Normalized to [-1, 1] |
-
-### Generalized Advantage Estimation (GAE)
-
-GAE provides a balance between bias and variance in advantage estimation:
-
-```
-A_t = δ_t + (γλ)δ_{t+1} + (γλ)²δ_{t+2} + ...
-```
-
-Where `δ_t = r_t + γV(s_{t+1}) - V(s_t)` is the TD error.
-
-| λ Value | Characteristics |
-|---------|-----------------|
-| λ = 0 | High bias, low variance (TD(0)) |
-| λ = 1 | Low bias, high variance (Monte Carlo) |
-| λ = 0.95 | Optimal balance for most tasks |
-
-## Reward System Design
-
-The reward system is carefully designed to teach strategic Briscola play:
-
-### Final Game Rewards
-
-| Outcome | Reward | Description |
-|---------|--------|-------------|
-| Cappotto (120-0) | ±3.0 | Perfect game bonus/penalty |
-| Dominant win (≥91 pts) | ±2.5 | Strong victory |
-| Solid win (≥80 pts) | ±2.0 | Clear victory |
-| Normal win/loss | ±1.0 to ±2.0 | Margin-based scaling |
-| Tie (60-60) | 0.0 | Draw |
-
-### Intermediate Trick Rewards
-
-The system provides dense feedback after each trick:
-
-#### Positive Signals
-- **Capture bonus**: Scaled by opponent card value (Ace/Three worth more)
-- **Efficiency bonus**: Capturing high cards with low cards
-- **Positional rewards**: Leading with low cards (lisci) is encouraged
-
-#### Negative Signals (Penalties)
-- **Card waste**: Using high cards (carichi) to capture worthless cards
-- **Trump waste**: Wasting briscola on non-valuable tricks
-- **Missed capture**: Not using small trump to capture opponent's Ace/Three
-
-### Card Value Weights
-
-```python
-CARD_VALUE_WEIGHTS = {
-    ACE:   1.0,   # 11 points - Carico
-    THREE: 0.9,   # 10 points - Carico
-    KING:  0.35,  # 4 points  - Figura
-    HORSE: 0.25,  # 3 points  - Figura
-    JACK:  0.18,  # 2 points  - Figura
-    SEVEN: 0.05,  # 0 points  - Liscio Alto
-    SIX:   0.04,  # 0 points  - Liscio
-    FIVE:  0.03,  # 0 points  - Liscio
-    FOUR:  0.02,  # 0 points  - Liscio
-    TWO:   0.01,  # 0 points  - Liscio Basso
-}
-```
-
-### Game Phase Modifiers
-
-Rewards are amplified in critical moments:
-- **End game** (tricks 15-20): 1.5× modifier
-- **Critical moment** (close score in end game): 2.0× modifier
-
-## Game Rules
-
-Briscola is played with a 40-card Italian deck:
-
-### Card Rankings (Highest to Lowest)
-```
-Ace (11 pts) > Three (10 pts) > King (4 pts) > Horse (3 pts) > Jack (2 pts) > 7-2 (0 pts)
-```
-
-### Gameplay
-1. Each player receives 3 cards; one card is revealed as **briscola** (trump)
-2. Players take turns playing one card per trick
-3. **No obligation to follow suit** - play any card
-4. Trick winner draws first from deck, then opponent
-5. Trump (briscola) beats any non-trump card
-6. Same suit: higher rank wins; different suits (no trump): first card wins
-7. Game ends when all 40 cards are played; **61+ points wins**
-
-## Installation
+## Quick Start
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+ (for frontend)
-- Ollama (for LLM opponent)
 
-### Setup
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Python | 3.10+ | Core runtime |
+| Ollama | Latest | LLM opponent |
+| Node.js | 18+ | Frontend (optional) |
+| Docker | Latest | Containerized deployment (optional) |
+
+### Installation
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/yourusername/briscola-1-vs-1.git
 cd briscola-1-vs-1
 
-# Install Python dependencies
+# 2. Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install the package
 pip install -e .
 
-# Setup Ollama model (optional, for LLM opponent)
+# 4. Setup LLM opponent
 ollama pull mistral:7b
 ollama create briscola -f Modelfile
 
-# Generate BAML client
+# 5. Generate BAML client
 baml-cli generate
 ```
 
-## Usage
-
-### Training
+### Train Your First Agent
 
 ```bash
-# Start Ollama server (in separate terminal)
+# Terminal 1: Start Ollama
 ollama serve
 
-# Run training
+# Terminal 2: Start training
 briscola train
-
-# Or with custom parameters
-briscola train --num-updates 1000 --lr 3e-4 --hidden-dim 128
 ```
 
-Training metrics displayed:
-- **WR**: Win rate against LLM opponent
-- **R**: Mean cumulative reward per episode
-- **PL**: Policy loss (negative = policy improving)
+You'll see output like:
+```
+Training... ━━━━━━━━━━━━━━━━━━━━   15% WR: 72.0% | R: 0.89 | PL: -0.023
+```
 
-### Web Application
+| Metric | Meaning |
+|--------|---------|
+| `WR` | Win Rate - percentage of games won |
+| `R` | Reward - average cumulative reward per game |
+| `PL` | Policy Loss - negative means the agent is improving |
+
+---
+
+## How It Works
+
+### High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      TRAINING LOOP                              │
+│                                                                 │
+│  ┌───────────┐    ┌───────────┐    ┌───────────┐               │
+│  │           │    │           │    │           │               │
+│  │  Briscola │◄──►│    PPO    │◄──►│    LLM    │               │
+│  │   Game    │    │   Agent   │    │  Opponent │               │
+│  │  Engine   │    │           │    │  (Ollama) │               │
+│  │           │    │           │    │           │               │
+│  └───────────┘    └───────────┘    └───────────┘               │
+│       │                │                                        │
+│       ▼                ▼                                        │
+│  ┌───────────┐    ┌───────────┐                                │
+│  │Observation│    │  Actor-   │                                │
+│  │  Vector   │    │  Critic   │                                │
+│  │ (245 dim) │    │  Network  │                                │
+│  └───────────┘    └───────────┘                                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### The Training Process
+
+1. **Game Setup**: Environment deals cards, reveals trump (briscola)
+2. **Observation**: Agent sees its hand, trump suit, played cards, scores
+3. **Action**: Agent selects one of 3 cards to play
+4. **Opponent**: LLM analyzes the game state and responds
+5. **Reward**: Agent receives feedback based on trick outcome
+6. **Learning**: PPO updates the neural network weights
+7. **Repeat**: Process continues for thousands of games
+
+### Why PPO?
+
+**Proximal Policy Optimization** is ideal for card games because:
+
+| Challenge | How PPO Helps |
+|-----------|---------------|
+| High variance outcomes | Clipping prevents overreacting to lucky/unlucky games |
+| Sparse rewards | GAE provides dense learning signals |
+| Invalid actions | Action masking handles variable hand sizes |
+| Sample efficiency | Multiple epochs over collected experience |
+
+---
+
+## The Game: Briscola
+
+### Overview
+
+Briscola is a trick-taking game for 2-4 players using a 40-card Italian deck. The objective is to score more than 60 points (out of 120 total).
+
+### Card Values
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CARD HIERARCHY                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   CARICHI (High Value)          FIGURE (Face Cards)             │
+│   ┌─────┐ ┌─────┐               ┌─────┐ ┌─────┐ ┌─────┐        │
+│   │  A  │ │  3  │               │  K  │ │  H  │ │  J  │        │
+│   │ 11p │ │ 10p │               │ 4p  │ │ 3p  │ │ 2p  │        │
+│   └─────┘ └─────┘               └─────┘ └─────┘ └─────┘        │
+│                                                                 │
+│   LISCI (Zero Points)                                           │
+│   ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐                      │
+│   │  7  │ │  6  │ │  5  │ │  4  │ │  2  │                      │
+│   │ 0p  │ │ 0p  │ │ 0p  │ │ 0p  │ │ 0p  │                      │
+│   └─────┘ └─────┘ └─────┘ └─────┘ └─────┘                      │
+│                                                                 │
+│   Rank Order: A > 3 > K > H > J > 7 > 6 > 5 > 4 > 2            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Rules Summary
+
+| Rule | Description |
+|------|-------------|
+| **Setup** | Each player gets 3 cards; one card revealed as trump (briscola) |
+| **Play** | No obligation to follow suit - play any card |
+| **Trump** | Any briscola beats any non-briscola card |
+| **Same Suit** | Higher rank wins |
+| **Different Suits** | First card wins (unless trump played) |
+| **Drawing** | Winner draws first, then opponent |
+| **Victory** | First to 61+ points wins; 60-60 is a tie |
+
+### The Four Suits
+
+| Italian | English | Symbol |
+|---------|---------|--------|
+| Denari | Coins | 🪙 |
+| Coppe | Cups | 🏆 |
+| Spade | Swords | ⚔️ |
+| Bastoni | Clubs | 🪵 |
+
+---
+
+## Technical Deep Dive
+
+### Neural Network Architecture
+
+The agent uses an **Actor-Critic** architecture with shared feature extraction:
+
+```
+                         INPUT
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │    Observation (245)   │
+              │                        │
+              │  • Hand: 120 dims      │
+              │  • Trump: 4 dims       │
+              │  • Played: 40 dims     │
+              │  • Trick: 40 dims      │
+              │  • Score: 1 dim        │
+              └───────────┬────────────┘
+                          │
+                          ▼
+              ┌────────────────────────┐
+              │   Shared Feature       │
+              │   Extractor            │
+              │                        │
+              │   Linear(245 → 128)    │
+              │   ReLU                 │
+              │   Linear(128 → 128)    │
+              │   ReLU                 │
+              └───────────┬────────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            │                           │
+            ▼                           ▼
+┌───────────────────────┐   ┌───────────────────────┐
+│      ACTOR HEAD       │   │      CRITIC HEAD      │
+│                       │   │                       │
+│   Linear(128 → 64)    │   │   Linear(128 → 64)    │
+│   ReLU                │   │   ReLU                │
+│   Linear(64 → 3)      │   │   Linear(64 → 1)      │
+│                       │   │                       │
+│   Output: π(a|s)      │   │   Output: V(s)        │
+│   (action probs)      │   │   (state value)       │
+└───────────────────────┘   └───────────────────────┘
+```
+
+### PPO Algorithm
+
+The core learning algorithm uses the **clipped surrogate objective**:
+
+```
+L(θ) = E[ min(r(θ)·A, clip(r(θ), 1-ε, 1+ε)·A) ]
+
+where:
+  r(θ) = π_new(a|s) / π_old(a|s)    # probability ratio
+  A    = advantage estimate          # how good was this action?
+  ε    = 0.2                         # clipping parameter
+```
+
+**Why clipping matters**: Prevents the policy from changing too drastically in a single update, which could destabilize learning.
+
+### Generalized Advantage Estimation (GAE)
+
+GAE balances bias and variance in advantage estimation:
+
+```
+A_t = δ_t + (γλ)δ_{t+1} + (γλ)²δ_{t+2} + ...
+
+where:
+  δ_t = r_t + γV(s_{t+1}) - V(s_t)   # TD error
+  γ   = 0.99                          # discount factor
+  λ   = 0.95                          # GAE parameter
+```
+
+| λ Value | Trade-off |
+|---------|-----------|
+| 0.0 | High bias, low variance (TD learning) |
+| 1.0 | Low bias, high variance (Monte Carlo) |
+| 0.95 | Balanced (recommended) |
+
+### Reward System
+
+The reward system teaches strategic Briscola play through carefully designed signals:
+
+#### Game Outcome Rewards
+
+| Result | Reward | Description |
+|--------|--------|-------------|
+| Cappotto (120-0) | **±3.0** | Perfect game |
+| Dominant (≥91 pts) | **±2.5** | Strong victory |
+| Solid (≥80 pts) | **±2.0** | Clear victory |
+| Standard win/loss | **±1.0 to ±2.0** | Margin-scaled |
+| Tie (60-60) | **0.0** | Draw |
+
+#### Per-Trick Rewards
+
+**Positive Signals:**
+```
+✓ Capturing opponent's high cards (Ace, Three)
+✓ Winning tricks efficiently (low card beats high card)
+✓ Leading with low-value cards (lisci)
+✓ Strategic trump usage
+```
+
+**Penalties:**
+```
+✗ Wasting carichi (A, 3) on worthless tricks
+✗ Unnecessary trump usage on low-value tricks
+✗ Missing capture opportunities with small trump
+✗ Leading with valuable cards (exposes them)
+```
+
+#### Card Strategic Weights
+
+```python
+WEIGHTS = {
+    ACE:   1.00,  # Most valuable - protect and capture
+    THREE: 0.90,  # Second most valuable
+    KING:  0.35,  # Face card
+    HORSE: 0.25,  # Face card
+    JACK:  0.18,  # Face card
+    SEVEN: 0.05,  # Best liscio
+    SIX:   0.04,  # Liscio
+    FIVE:  0.03,  # Liscio
+    FOUR:  0.02,  # Liscio
+    TWO:   0.01,  # Lowest value
+}
+```
+
+---
+
+## Web Application
+
+### Running with Docker
 
 ```bash
-# Using Docker
+# Start all services
 docker compose up
 
-# Access the game
-# Frontend: http://localhost
-# API docs: http://localhost:8000/docs
+# Access points:
+# • Frontend: http://localhost
+# • API Docs: http://localhost:8000/docs
 ```
 
-### CLI Options
+### Running Locally
 
 ```bash
-briscola train --help
+# Terminal 1: Start API
+python -m api.run
 
-Options:
-  --num-updates        Number of PPO updates (default: 1000)
-  --episodes-per-update Episodes per update (default: 10)
-  --eval-interval      Evaluation frequency (default: 10)
-  --lr                 Learning rate (default: 3e-4)
-  --gamma              Discount factor (default: 0.99)
-  --clip-epsilon       PPO clip parameter (default: 0.2)
-  --hidden-dim         Network hidden size (default: 128)
-  --device             cpu or cuda (default: cpu)
+# Terminal 2: Start frontend
+cd frontend
+npm install
+npm start
 ```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/game/new` | Start a new game |
+| `GET` | `/game/{id}/state` | Get current game state |
+| `POST` | `/game/{id}/play` | Play a card |
+| `GET` | `/game/{id}/history` | Get game history |
+| `DELETE` | `/game/{id}` | End game session |
+| `POST` | `/model/load` | Load a checkpoint |
+| `GET` | `/model/status` | Get model info |
+
+---
 
 ## Project Structure
 
 ```
 briscola-1-vs-1/
-├── src/
-│   ├── cards.py              # Card and deck definitions
-│   ├── briscola_env.py       # RL environment with reward system
+│
+├── src/                          # Core game and RL logic
+│   ├── cards.py                  # Card, Deck classes
+│   ├── briscola_env.py           # RL environment
 │   ├── models/
-│   │   ├── actor_critic.py   # Neural network architecture
-│   │   ├── ppo.py            # PPO algorithm implementation
-│   │   ├── gae.py            # Advantage estimation
-│   │   └── replay_buffer.py  # Experience storage
+│   │   ├── actor_critic.py       # Neural network
+│   │   ├── ppo.py                # PPO algorithm
+│   │   ├── gae.py                # Advantage estimation
+│   │   └── replay_buffer.py      # Experience storage
 │   └── agents/
-│       └── llm_opponent.py   # BAML-powered LLM opponent
+│       └── llm_opponent.py       # BAML/Ollama opponent
+│
 ├── training/
-│   └── train_vs_llm.py       # Training loop
+│   └── train_vs_llm.py           # Training loop
+│
 ├── briscola_rl/
-│   └── cli.py                # Command-line interface
+│   └── cli.py                    # Command-line interface
+│
 ├── api/
-│   └── main.py               # FastAPI backend
-├── frontend/                 # Angular web application
-├── baml_src/                 # BAML function definitions
-├── checkpoints/              # Saved model weights
-└── Modelfile                 # Ollama model configuration
+│   ├── main.py                   # FastAPI application
+│   └── Dockerfile
+│
+├── frontend/                     # Angular application
+│   ├── src/app/
+│   │   ├── components/           # UI components
+│   │   ├── services/             # API services
+│   │   └── models/               # TypeScript interfaces
+│   └── Dockerfile
+│
+├── baml_src/                     # LLM function definitions
+│   ├── clients.baml              # Ollama client config
+│   └── briscola_functions.baml   # Card selection logic
+│
+├── checkpoints/                  # Saved model weights
+├── Modelfile                     # Ollama model definition
+├── docker-compose.yml            # Container orchestration
+├── pyproject.toml                # Python package config
+└── requirements.txt              # Dependencies
 ```
 
-## Tech Stack
+---
 
-| Component | Technology |
-|-----------|------------|
-| RL Framework | PyTorch 2.3+ |
-| Environment | Custom (PettingZoo-compatible) |
-| LLM Integration | BAML + Ollama |
-| Backend | FastAPI |
-| Frontend | Angular 19 |
-| Containerization | Docker Compose |
+## Configuration
+
+### Training Hyperparameters
+
+```bash
+briscola train \
+  --num-updates 1000 \        # Total training iterations
+  --episodes-per-update 10 \  # Games per PPO update
+  --lr 3e-4 \                 # Learning rate
+  --gamma 0.99 \              # Discount factor
+  --clip-epsilon 0.2 \        # PPO clipping
+  --hidden-dim 128 \          # Network size
+  --device cpu                # cpu or cuda
+```
+
+### Recommended Settings by Goal
+
+| Goal | Updates | Episodes/Update | Hidden Dim |
+|------|---------|-----------------|------------|
+| Quick test | 100 | 5 | 64 |
+| Standard training | 1000 | 10 | 128 |
+| Best performance | 5000 | 20 | 256 |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama server URL |
+| `ENVIRONMENT` | `development` | API environment |
+
+---
+
+## Contributing
+
+### Development Setup
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run linter
+ruff check .
+
+# Run tests
+pytest
+
+# Auto-fix issues
+ruff check --fix .
+```
+
+### Code Style
+
+This project uses [Ruff](https://github.com/astral-sh/ruff) for linting with a 100-character line limit.
+
+---
 
 ## References
 
-- [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347) - Schulman et al., 2017
-- [High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438) - Schulman et al., 2015
+- Schulman, J., et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347)
+- Schulman, J., et al. (2015). [High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438)
 - [BAML Documentation](https://docs.boundaryml.com/)
+- [Ollama](https://ollama.ai/)
+
+---
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Made with ❤️ for the love of Italian card games and reinforcement learning
+</p>
