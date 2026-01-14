@@ -1,0 +1,159 @@
+<div class="h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+  <!-- Header - Fixed Height -->
+  <header class="flex-shrink-0 bg-slate-800/80 backdrop-blur-md border-b border-slate-700/50 shadow-lg z-40">
+    <div class="h-14 sm:h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-3 sm:gap-4">
+        <div class="flex items-center gap-2">
+          <div class="text-2xl sm:text-3xl">🃏</div>
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">
+            Briscola RL
+          </h1>
+        </div>
+        <div class="hidden sm:block px-3 py-1 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full text-xs font-semibold text-white shadow-lg shadow-blue-500/30">
+          AI Training
+        </div>
+      </div>
+
+      @if (!gameState()) {
+        <button
+          (click)="startNewGame()"
+          [disabled]="isLoading()"
+          class="h-10 px-4 sm:px-6 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg font-bold transition-all hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/30 disabled:from-gray-600 disabled:to-gray-600 disabled:scale-100 text-sm"
+        >
+          @if (isLoading()) {
+            <span class="flex items-center gap-2">
+              <span class="animate-spin">⚙️</span>
+              Starting...
+            </span>
+          } @else {
+            Start Game
+          }
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Main Content - Fills Remaining Space -->
+  <main class="flex-1 min-h-0 flex overflow-hidden">
+    <!-- Game Area -->
+    <div class="flex-1 min-w-0 flex flex-col p-2 sm:p-4 lg:p-6 gap-2 sm:gap-4">
+      @if (gameState()) {
+        <!-- Trick Message Toast -->
+        @if (trickMessage()) {
+          <div class="flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-xl shadow-xl shadow-blue-500/40 border border-blue-400/30 backdrop-blur-sm">
+            <div class="text-sm font-semibold text-center">
+              {{ trickMessage() }}
+            </div>
+          </div>
+        }
+
+        <!-- Game Table - Takes Available Space -->
+        <div class="flex-1 min-h-0 bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-900 rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-amber-700/50 relative overflow-hidden">
+          <!-- Subtle felt texture overlay -->
+          <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent_50%)]"></div>
+          <div class="relative h-full">
+            <app-game-table [gameState]="gameState()" [lastTrick]="lastTrick()" />
+          </div>
+        </div>
+
+        <!-- Player Hand - Fixed Height at Bottom -->
+        <div class="flex-shrink-0 bg-slate-800/60 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700/50">
+          <app-hand
+            [cards]="gameState()!.player_hand"
+            [isPlayerTurn]="!gameState()!.game_over"
+            [selectedCardIndex]="selectedCardIndex()"
+            (cardSelected)="onCardSelected($event)"
+          />
+        </div>
+      } @else {
+        <!-- Welcome Screen - Centered -->
+        <div class="flex-1 flex items-center justify-center">
+          <div class="flex flex-col items-center justify-center gap-4 sm:gap-6 p-6 sm:p-10 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-md rounded-2xl border-2 border-slate-700/50 shadow-2xl relative overflow-hidden max-w-xl w-full">
+            <!-- Animated background gradient -->
+            <div class="absolute inset-0 bg-gradient-to-br from-emerald-900/10 via-transparent to-blue-900/10 animate-pulse"></div>
+
+            <div class="relative z-10 flex flex-col items-center gap-4 sm:gap-6">
+              <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent text-center">
+                Welcome to Briscola RL
+              </h2>
+              <p class="text-sm sm:text-base text-slate-300 text-center max-w-md leading-relaxed">
+                Play against an AI agent trained with Reinforcement Learning. Each game helps improve the agent's strategy.
+              </p>
+              <button
+                (click)="startNewGame()"
+                [disabled]="isLoading()"
+                class="h-12 px-8 sm:px-10 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-base sm:text-lg font-bold transition-all hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/40 disabled:from-gray-600 disabled:to-gray-600 disabled:scale-100"
+              >
+                Start Playing
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Error Display -->
+      @if (error()) {
+        <div class="flex-shrink-0 bg-rose-900/50 backdrop-blur-sm border border-rose-500 text-rose-200 px-4 py-2 rounded-xl shadow-lg shadow-rose-500/30">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">⚠️</span>
+            <span class="text-sm font-medium">{{ error() }}</span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Side Panel - Desktop Only, Fixed Width -->
+    <aside class="hidden lg:flex flex-shrink-0 w-80 xl:w-96 p-4 lg:p-6 overflow-y-auto">
+      <div class="w-full">
+        <app-training-panel
+          [modelStatus]="modelStatus()"
+          [isLoading]="isLoading()"
+          [error]="error()"
+          (trainClick)="onTrainModel()"
+          (newGameClick)="startNewGame()"
+          (saveModelClick)="onSaveModel()"
+        />
+      </div>
+    </aside>
+  </main>
+
+  <!-- Mobile Bottom Controls - Only on Mobile when game is active -->
+  <div class="lg:hidden flex-shrink-0 bg-slate-800/90 backdrop-blur-md border-t border-slate-700/50 px-4 py-2 safe-area-bottom">
+    <div class="flex items-center justify-around gap-2">
+      <button
+        (click)="startNewGame()"
+        [disabled]="isLoading()"
+        class="flex-1 h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg font-semibold text-sm disabled:from-gray-600 disabled:to-gray-600"
+      >
+        New Game
+      </button>
+      <button
+        (click)="onTrainModel()"
+        [disabled]="isLoading() || (modelStatus()?.buffer_size || 0) === 0"
+        class="flex-1 h-10 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-semibold text-sm disabled:from-gray-600 disabled:to-gray-600"
+      >
+        Train ({{ modelStatus()?.buffer_size || 0 }})
+      </button>
+      <button
+        (click)="onSaveModel()"
+        [disabled]="isLoading()"
+        class="flex-1 h-10 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-lg font-semibold text-sm disabled:from-gray-600 disabled:to-gray-600"
+      >
+        Save
+      </button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  @if (gameState()?.game_over) {
+    <app-game-over-modal
+      [isVisible]="showGameOver()"
+      [winner]="gameState()!.winner"
+      [playerScore]="gameState()!.player_score"
+      [opponentScore]="gameState()!.opponent_score"
+      [message]="gameState()!.message"
+      (playAgainClick)="onPlayAgain()"
+      (closeClick)="onCloseGameOver()"
+    />
+  }
+</div>

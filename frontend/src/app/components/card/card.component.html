@@ -1,0 +1,63 @@
+<div
+  class="relative transition-all duration-300 select-none"
+  [class]="cardClasses()"
+  (click)="handleClick()"
+>
+  <div
+    class="relative w-full h-full rounded-xl shadow-lg overflow-hidden bg-white border-2 border-slate-300 transition-all duration-300"
+    [class.ring-4]="isSelected()"
+    [class.ring-amber-400]="isSelected()"
+    [class.ring-offset-2]="isSelected()"
+    [class.ring-offset-slate-900]="isSelected()"
+    [class.shadow-2xl]="isSelected()"
+    [class.shadow-amber-400/50]="isSelected()"
+  >
+    @if (isHidden()) {
+      <!-- Card Back with Pattern -->
+      <div class="relative w-full h-full">
+        <img
+          [ngSrc]="cardBackPath"
+          alt="Hidden card"
+          width="120"
+          height="180"
+          class="w-full h-full object-cover"
+          priority
+        />
+        <!-- Subtle shine effect on card back -->
+        <div class="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none"></div>
+      </div>
+    } @else if (card()) {
+      <!-- Card Face -->
+      <div class="relative w-full h-full">
+        <img
+          [ngSrc]="imagePath()"
+          [alt]="card()!.display_name"
+          width="120"
+          height="180"
+          class="w-full h-full object-cover"
+          priority
+        />
+        <!-- Shine overlay for card face -->
+        <div class="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none"></div>
+
+        @if (showPoints() && card()!.points > 0) {
+          <div
+            class="absolute top-1 right-1 bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-900 text-xs sm:text-sm font-bold px-2 py-1 rounded-full shadow-lg border border-amber-300"
+          >
+            {{ card()!.points }}
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Glow effect for selected/hoverable cards -->
+  @if (isSelected() || isClickable()) {
+    <div
+      class="absolute inset-0 rounded-xl blur-md -z-10 transition-opacity duration-300"
+      [class.opacity-60]="isSelected()"
+      [class.opacity-0]="!isSelected()"
+      [class.bg-amber-400]="isSelected()"
+    ></div>
+  }
+</div>

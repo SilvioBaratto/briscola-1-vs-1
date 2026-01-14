@@ -1,0 +1,141 @@
+<div
+  class="relative h-full flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 lg:p-10"
+>
+  <!-- Scoreboard - Fixed at top corners -->
+  <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 flex justify-between items-start z-10">
+    <!-- Opponent Score (Left) -->
+    <div class="flex flex-col items-center gap-1 p-2 sm:p-3 bg-slate-800/90 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-lg min-w-[80px] sm:min-w-[100px]">
+      <div class="text-xs sm:text-sm text-slate-400 font-medium uppercase tracking-wider">RL Agent</div>
+      <div class="text-2xl sm:text-3xl md:text-4xl font-bold text-rose-400">
+        {{ gameState()?.opponent_score || 0 }}
+      </div>
+      <div class="text-xs text-slate-500">points</div>
+    </div>
+
+    <!-- Player Score (Right) -->
+    <div class="flex flex-col items-center gap-1 p-2 sm:p-3 bg-slate-800/90 backdrop-blur-md rounded-xl border border-emerald-500/30 shadow-lg min-w-[80px] sm:min-w-[100px]">
+      <div class="text-xs sm:text-sm text-slate-400 font-medium uppercase tracking-wider">You</div>
+      <div class="text-2xl sm:text-3xl md:text-4xl font-bold text-emerald-400">
+        {{ gameState()?.player_score || 0 }}
+      </div>
+      <div class="text-xs text-slate-500">points</div>
+    </div>
+  </div>
+
+  <!-- Spacer for top scoreboard -->
+  <div class="mt-12 sm:mt-16"></div>
+
+  <!-- Playing Area - Center Stage with Horizontal Layout -->
+  <div class="flex items-center justify-center gap-6 sm:gap-10 md:gap-16 lg:gap-20">
+    <!-- Opponent's Played Card (Left) -->
+    <div class="flex flex-col items-center gap-2 sm:gap-3 min-w-[5rem] sm:min-w-[6rem] md:min-w-[7rem]">
+      @if (opponentPlayedCard()) {
+        <div class="relative">
+          <app-card [card]="opponentPlayedCard()!" [isClickable]="false" [size]="'medium'" />
+          <!-- Red glow for opponent, green if they won -->
+          <div
+            class="absolute inset-0 blur-xl rounded-lg -z-10"
+            [class.bg-emerald-500/40]="trickWinner() === 'opponent'"
+            [class.bg-rose-500/30]="trickWinner() !== 'opponent'"
+          ></div>
+        </div>
+        <div
+          class="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold"
+          [class.bg-emerald-600]="trickWinner() === 'opponent'"
+          [class.text-white]="trickWinner() === 'opponent'"
+          [class.bg-slate-700]="trickWinner() !== 'opponent'"
+          [class.text-slate-200]="trickWinner() !== 'opponent'"
+        >
+          @if (trickWinner() === 'opponent') {
+            Winner!
+          } @else {
+            Opponent
+          }
+        </div>
+      } @else {
+        <!-- Empty placeholder for opponent's card -->
+        <div class="w-16 h-24 sm:w-20 sm:h-[7.5rem] md:w-24 md:h-36 rounded-xl border-2 border-dashed border-slate-600/50 flex items-center justify-center">
+          <span class="text-slate-500 text-xs sm:text-sm">AI</span>
+        </div>
+        <div class="px-3 py-1 rounded-full text-xs sm:text-sm font-medium text-slate-500">
+          Waiting...
+        </div>
+      }
+    </div>
+
+    <!-- Deck & Trump Card (Center) -->
+    <div class="flex flex-col items-center gap-2 sm:gap-3">
+      @if (gameState()?.trump_card) {
+        <div class="relative">
+          <app-card [card]="gameState()!.trump_card" [isClickable]="false" [size]="'medium'" />
+          <!-- Glow effect for trump card -->
+          <div class="absolute inset-0 bg-amber-400/20 blur-xl rounded-lg -z-10"></div>
+        </div>
+      }
+      <div class="flex items-center gap-2 px-3 py-1 bg-slate-800/60 backdrop-blur-sm rounded-full border border-slate-700/50">
+        <span class="text-xs sm:text-sm">📚</span>
+        <div class="text-xs sm:text-sm text-slate-300 font-medium">
+          <span class="font-bold text-white">{{ gameState()?.cards_in_deck || 0 }}</span> left
+        </div>
+      </div>
+    </div>
+
+    <!-- Player's Played Card (Right) -->
+    <div class="flex flex-col items-center gap-2 sm:gap-3 min-w-[5rem] sm:min-w-[6rem] md:min-w-[7rem]">
+      @if (playerPlayedCard()) {
+        <div class="relative">
+          <app-card [card]="playerPlayedCard()!" [isClickable]="false" [size]="'medium'" />
+          <!-- Green glow for player, brighter if they won -->
+          <div
+            class="absolute inset-0 blur-xl rounded-lg -z-10"
+            [class.bg-amber-400/50]="trickWinner() === 'player'"
+            [class.bg-emerald-500/30]="trickWinner() !== 'player'"
+          ></div>
+        </div>
+        <div
+          class="px-3 py-1 rounded-full text-xs sm:text-sm font-semibold"
+          [class.bg-amber-500]="trickWinner() === 'player'"
+          [class.text-slate-900]="trickWinner() === 'player'"
+          [class.bg-emerald-600]="trickWinner() !== 'player'"
+          [class.text-white]="trickWinner() !== 'player'"
+        >
+          @if (trickWinner() === 'player') {
+            Winner!
+          } @else {
+            You
+          }
+        </div>
+      } @else {
+        <!-- Empty placeholder for player's card -->
+        <div class="w-16 h-24 sm:w-20 sm:h-[7.5rem] md:w-24 md:h-36 rounded-xl border-2 border-dashed border-emerald-600/50 flex items-center justify-center">
+          <span class="text-emerald-500 text-xs sm:text-sm">You</span>
+        </div>
+        <div class="px-3 py-1 rounded-full text-xs sm:text-sm font-medium text-emerald-500">
+          Your turn
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Player Area - Turn Indicator -->
+  <div class="flex flex-col items-center gap-2">
+    @if (gameState()?.player_leads) {
+      <div
+        class="flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-900 rounded-full text-sm sm:text-base font-bold shadow-lg shadow-amber-500/40 animate-pulse"
+      >
+        <span class="text-lg sm:text-xl">⭐</span>
+        Your Turn to Lead
+      </div>
+    } @else {
+      <div
+        class="flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-full text-sm sm:text-base font-bold shadow-lg shadow-blue-500/40"
+      >
+        <span class="text-lg sm:text-xl">🎯</span>
+        Respond to Opponent
+      </div>
+    }
+    <div class="text-xs sm:text-sm text-slate-400">
+      Need 61 points to win (total: 120)
+    </div>
+  </div>
+</div>

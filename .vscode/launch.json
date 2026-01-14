@@ -1,0 +1,118 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "FastAPI Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "api.main:app",
+                "--reload",
+                "--host", "0.0.0.0",
+                "--port", "8000"
+            ],
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "jinja": true,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "FastAPI Server (No Reload)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "api.main:app",
+                "--host", "0.0.0.0",
+                "--port", "8000"
+            ],
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "jinja": true,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Briscola CLI - Train",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "briscola_rl.cli",
+            "args": [
+                "train",
+                "--num-updates", "100",
+                "--device", "cpu"
+            ],
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Briscola CLI - Evaluate",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "briscola_rl.cli",
+            "args": [
+                "evaluate",
+                "${input:checkpointPath}",
+                "--num-episodes", "50"
+            ],
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Briscola CLI - Play",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "briscola_rl.cli",
+            "args": [
+                "play"
+            ],
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "python": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Full Stack (API + Frontend)",
+            "configurations": ["FastAPI Server", "Angular Frontend"],
+            "stopAll": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "checkpointPath",
+            "type": "promptString",
+            "description": "Path to model checkpoint",
+            "default": "checkpoints/best_model.pt"
+        }
+    ]
+}

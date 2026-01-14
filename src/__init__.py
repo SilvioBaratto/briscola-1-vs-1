@@ -1,0 +1,1 @@
+"""Briscola RL source package."""

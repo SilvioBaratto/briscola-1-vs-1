@@ -1,0 +1,48 @@
+<div class="flex flex-col items-center gap-3 sm:gap-4 p-3 sm:p-4">
+  <!-- Player's Hand - Cards with slight overlap for mobile -->
+  <div class="flex justify-center items-end gap-2 sm:gap-3 md:gap-4 flex-wrap">
+    @for (handCard of cards(); track handCard.index) {
+      <div class="flex flex-col items-center gap-2 group">
+        <app-card
+          [card]="handCard.card"
+          [isClickable]="isPlayerTurn()"
+          [isSelected]="selectedCardIndex() === handCard.index"
+          [size]="'large'"
+          (cardClick)="handleCardClick(handCard.index)"
+        />
+        @if (isPlayerTurn()) {
+          <div
+            class="text-xs sm:text-sm font-bold text-emerald-400 opacity-0 transition-all duration-300 -mt-1"
+            [class.opacity-100]="selectedCardIndex() === handCard.index"
+            [class.translate-y-0]="selectedCardIndex() === handCard.index"
+            [class.translate-y-2]="selectedCardIndex() !== handCard.index"
+          >
+            <span class="flex items-center gap-1 px-2 py-1 bg-emerald-600/30 backdrop-blur-sm rounded-full border border-emerald-400/50">
+              <span class="text-xs">✓</span>
+              Selected
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Turn Indicator -->
+  <div class="text-center flex items-center justify-center">
+    @if (isPlayerTurn()) {
+      <div class="flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/40 animate-pulse">
+        <span class="text-sm sm:text-base">👆</span>
+        <p class="text-xs sm:text-sm font-bold">
+          Your Turn - Click a card to play
+        </p>
+      </div>
+    } @else {
+      <div class="flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 bg-slate-700/60 backdrop-blur-sm text-slate-300 rounded-full border border-slate-600/50">
+        <div class="animate-spin text-sm sm:text-base">⏳</div>
+        <p class="text-xs sm:text-sm font-medium">
+          Waiting for opponent...
+        </p>
+      </div>
+    }
+  </div>
+</div>

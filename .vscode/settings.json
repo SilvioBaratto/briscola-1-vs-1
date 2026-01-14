@@ -1,0 +1,11 @@
+{
+    "python.analysis.typeCheckingMode": "standard",
+    "python.defaultInterpreterPath": "/Users/silviobaratto/anaconda3/envs/cucu_rl/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/src"
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/src"
+    ]
+}

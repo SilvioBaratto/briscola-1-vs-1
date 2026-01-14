@@ -1,0 +1,30 @@
+# Dependencies - installed fresh in container
+node_modules
+
+# Build output - built fresh in container
+dist
+
+# Angular cache
+.angular
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Test files
+coverage
+*.spec.ts
+
+# Misc
+.DS_Store
+Thumbs.db

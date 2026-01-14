@@ -1,0 +1,187 @@
+<div class="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl border-2 border-slate-700/50">
+  <!-- Training Controls Section -->
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-2 pb-3 border-b border-slate-700/50">
+      <span class="text-xl">🎯</span>
+      <h3 class="text-base sm:text-lg md:text-xl font-bold text-white">
+        Training Controls
+      </h3>
+    </div>
+
+    <button
+      (click)="trainClick.emit()"
+      [disabled]="isLoading() || bufferSize() === 0"
+      class="min-h-11 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold transition-all hover:scale-105 hover:shadow-xl hover:shadow-blue-500/40 disabled:from-gray-600 disabled:to-gray-600 disabled:scale-100 disabled:shadow-none text-sm sm:text-base"
+    >
+      @if (isLoading()) {
+        <span class="flex items-center justify-center gap-2">
+          <span class="animate-spin">⚙️</span>
+          Training...
+        </span>
+      } @else {
+        <span class="flex items-center justify-center gap-2">
+          <span>🧠</span>
+          Train Model ({{ bufferSize() }} exp)
+        </span>
+      }
+    </button>
+
+    @if (bufferSize() === 0) {
+      <div class="flex items-start gap-2 p-3 bg-amber-500/20 border border-amber-400/30 rounded-lg">
+        <span class="text-base">💡</span>
+        <p class="text-xs sm:text-sm text-amber-300 font-medium">
+          Play some games to collect training data
+        </p>
+      </div>
+    } @else if (bufferSize() < 64) {
+      <div class="flex items-start gap-2 p-3 bg-amber-500/20 border border-amber-400/30 rounded-lg">
+        <span class="text-base">📊</span>
+        <div class="flex-1">
+          <p class="text-xs sm:text-sm text-amber-300 font-medium">
+            Collecting experiences...
+          </p>
+          <div class="mt-2 w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-300"
+              [style.width.%]="(bufferSize() / 64) * 100"
+            ></div>
+          </div>
+          <p class="text-xs text-amber-400 mt-1">
+            {{ bufferSize() }} / 64 (minimum for training)
+          </p>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Model Status Section -->
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-2 pb-3 border-b border-slate-700/50">
+      <span class="text-xl">📈</span>
+      <h3 class="text-base sm:text-lg md:text-xl font-bold text-white">
+        Model Status
+      </h3>
+    </div>
+
+    <div class="grid grid-cols-1 gap-2 sm:gap-3 text-xs sm:text-sm">
+      <div class="flex justify-between items-center p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-slate-600/30">
+        <span class="text-slate-300 flex items-center gap-2">
+          <span>🎮</span>
+          Games Collected:
+        </span>
+        <span class="font-bold text-white text-base">{{ modelStatus()?.games_collected || 0 }}</span>
+      </div>
+
+      <div class="flex justify-between items-center p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-slate-600/30">
+        <span class="text-slate-300 flex items-center gap-2">
+          <span>💾</span>
+          Buffer Size:
+        </span>
+        <span class="font-bold text-white text-base">{{ modelStatus()?.buffer_size || 0 }}</span>
+      </div>
+
+      <div class="flex justify-between items-center p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-slate-600/30">
+        <span class="text-slate-300 flex items-center gap-2">
+          <span>⚡</span>
+          Device:
+        </span>
+        <span class="font-mono font-semibold text-white uppercase text-sm">{{ modelStatus()?.device || 'cpu' }}</span>
+      </div>
+
+      <div class="flex justify-between items-center p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-slate-600/30">
+        <span class="text-slate-300 flex items-center gap-2">
+          <span>🔌</span>
+          Model Status:
+        </span>
+        <span
+          class="font-semibold flex items-center gap-1"
+          [class.text-emerald-400]="modelStatus()?.loaded"
+          [class.text-slate-400]="!modelStatus()?.loaded"
+        >
+          <span class="text-xs">{{ modelStatus()?.loaded ? '●' : '○' }}</span>
+          {{ modelStatus()?.loaded ? 'Loaded' : 'Not Loaded' }}
+        </span>
+      </div>
+
+      @if (modelStatus()?.checkpoint_path) {
+        <div class="flex flex-col gap-2 p-3 bg-slate-700/50 backdrop-blur-sm rounded-lg border border-slate-600/30">
+          <span class="text-slate-300 flex items-center gap-2">
+            <span>📁</span>
+            Checkpoint:
+          </span>
+          <span class="font-mono text-xs text-emerald-400 break-all bg-slate-900/50 p-2 rounded border border-slate-600">
+            {{ modelStatus()!.checkpoint_path }}
+          </span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Game Controls Section -->
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-2 pb-3 border-b border-slate-700/50">
+      <span class="text-xl">🎮</span>
+      <h3 class="text-base sm:text-lg md:text-xl font-bold text-white">
+        Game Controls
+      </h3>
+    </div>
+
+    <button
+      (click)="newGameClick.emit()"
+      [disabled]="isLoading()"
+      class="min-h-11 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl font-semibold transition-all hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/40 disabled:from-gray-600 disabled:to-gray-600 disabled:scale-100 disabled:shadow-none text-sm sm:text-base"
+    >
+      <span class="flex items-center justify-center gap-2">
+        <span>🆕</span>
+        New Game
+      </span>
+    </button>
+
+    <button
+      (click)="saveModelClick.emit()"
+      [disabled]="isLoading()"
+      class="min-h-11 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-xl font-semibold transition-all hover:scale-105 hover:shadow-xl hover:shadow-purple-500/40 disabled:from-gray-600 disabled:to-gray-600 disabled:scale-100 disabled:shadow-none text-sm sm:text-base"
+    >
+      <span class="flex items-center justify-center gap-2">
+        <span>💾</span>
+        Save Model
+      </span>
+    </button>
+
+    @if (error()) {
+      <div class="flex items-start gap-2 p-3 bg-rose-900/50 border border-rose-500 rounded-lg">
+        <span class="text-base">⚠️</span>
+        <p class="text-xs sm:text-sm text-rose-200 font-medium">
+          {{ error() }}
+        </p>
+      </div>
+    }
+  </div>
+
+  <!-- Stats Summary Section -->
+  <div class="flex flex-col gap-3 p-4 bg-gradient-to-br from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-xl border border-blue-500/30 shadow-inner">
+    <div class="flex items-center gap-2">
+      <span class="text-lg">🏆</span>
+      <div class="text-xs sm:text-sm font-semibold text-blue-300 uppercase tracking-wider">
+        Training Progress
+      </div>
+    </div>
+    <div class="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+      {{ modelStatus()?.games_collected || 0 }} games
+    </div>
+    @if (modelStatus()?.buffer_size && modelStatus()!.buffer_size > 0) {
+      <div class="space-y-2">
+        <div class="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden border border-slate-600/50">
+          <div
+            class="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 shadow-lg shadow-blue-500/50"
+            [style.width.%]="Math.min((modelStatus()!.buffer_size / 1000) * 100, 100)"
+          ></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-400">
+          <span>{{ modelStatus()!.buffer_size }} experiences</span>
+          <span>Goal: 1000</span>
+        </div>
+      </div>
+    }
+  </div>
+</div>

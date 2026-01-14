@@ -1,0 +1,55 @@
+# Simplified docker-compose for Briscola web app
+# Usage: docker compose up
+
+services:
+  # FastAPI Backend - Briscola RL API
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: briscola-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./api:/app/api
+      - ./models:/app/models
+      - ./checkpoints:/app/checkpoints
+      - ./baml_client:/app/baml_client
+      - ./baml_src:/app/baml_src
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=development
+    networks:
+      - briscola-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Angular Frontend - Briscola Game UI
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: briscola-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - briscola-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  briscola-network:
+    driver: bridge

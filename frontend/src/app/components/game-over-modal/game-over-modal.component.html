@@ -1,0 +1,103 @@
+@if (isVisible()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+    (click)="handleBackdropClick($event)"
+  >
+    <div
+      class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 md:p-10 transform transition-all animate-scale-in border-2 border-slate-700/50 relative overflow-hidden"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Animated background decoration -->
+      @if (winner() === 'player') {
+        <!-- Confetti-like effect for winner -->
+        <div class="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-yellow-400/5 to-emerald-500/10 animate-pulse"></div>
+      }
+
+      <div class="relative z-10">
+        <!-- Winner Announcement -->
+        <div class="flex flex-col items-center gap-4 sm:gap-6 text-center">
+          @if (winner() === 'player') {
+            <div class="relative">
+              <div class="text-6xl sm:text-7xl md:text-8xl animate-bounce">🏆</div>
+              <!-- Trophy glow -->
+              <div class="absolute inset-0 bg-amber-400/30 blur-2xl animate-pulse"></div>
+            </div>
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 bg-clip-text text-transparent">
+              Victory!
+            </h2>
+            <p class="text-base sm:text-lg text-emerald-300 font-semibold">
+              Congratulations, you won!
+            </p>
+          } @else if (winner() === 'opponent') {
+            <div class="relative">
+              <div class="text-6xl sm:text-7xl md:text-8xl">😔</div>
+            </div>
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-rose-400">
+              Defeat
+            </h2>
+            <p class="text-base sm:text-lg text-slate-300 font-medium">
+              Better luck next time!
+            </p>
+          } @else {
+            <div class="relative">
+              <div class="text-6xl sm:text-7xl md:text-8xl">🤝</div>
+            </div>
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-400">
+              Draw!
+            </h2>
+            <p class="text-base sm:text-lg text-slate-300 font-medium">
+              Evenly matched!
+            </p>
+          }
+
+          <!-- Scores Display with Glass Effect -->
+          <div class="w-full grid grid-cols-2 gap-4 p-5 bg-slate-700/50 backdrop-blur-sm rounded-2xl border border-slate-600/50 shadow-inner">
+            <div class="flex flex-col gap-2">
+              <div class="text-xs sm:text-sm text-slate-400 uppercase tracking-wider font-semibold">
+                You
+              </div>
+              <div class="text-3xl sm:text-4xl font-bold text-emerald-400 drop-shadow-lg">
+                {{ playerScore() }}
+              </div>
+              <div class="text-xs text-slate-400">points</div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div class="text-xs sm:text-sm text-slate-400 uppercase tracking-wider font-semibold">
+                Opponent
+              </div>
+              <div class="text-3xl sm:text-4xl font-bold text-rose-400 drop-shadow-lg">
+                {{ opponentScore() }}
+              </div>
+              <div class="text-xs text-slate-400">points</div>
+            </div>
+          </div>
+
+          @if (message()) {
+            <div class="px-4 py-3 bg-blue-500/20 rounded-xl border border-blue-400/30">
+              <p class="text-sm sm:text-base text-blue-200 font-medium">{{ message() }}</p>
+            </div>
+          }
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col sm:flex-row gap-3 w-full mt-4">
+            <button
+              (click)="playAgainClick.emit()"
+              class="flex-1 min-h-11 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl font-bold transition-all hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/40 text-sm sm:text-base"
+            >
+              <span class="flex items-center justify-center gap-2">
+                <span class="text-lg">🎮</span>
+                Play Again
+              </span>
+            </button>
+            <button
+              (click)="closeClick.emit()"
+              class="flex-1 min-h-11 px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all hover:scale-105 text-sm sm:text-base border border-slate-500/50"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

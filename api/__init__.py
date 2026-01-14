@@ -1,0 +1,45 @@
+"""FastAPI backend for Briscola card game."""
+
+from api.config import settings
+from api.schemas import (
+    CardSchema,
+    GameHistoryEntry,
+    GameHistoryResponse,
+    GameStateResponse,
+    HandCardSchema,
+    ModelLoadRequest,
+    ModelLoadResponse,
+    ModelSaveRequest,
+    ModelSaveResponse,
+    ModelStatusResponse,
+    NewGameRequest,
+    NewGameResponse,
+    PlayCardRequest,
+    PlayCardResponse,
+    TrainRequest,
+    TrainResponse,
+    TrickCardSchema,
+    TrickResult,
+)
+
+__all__ = [
+    "settings",
+    "CardSchema",
+    "GameHistoryEntry",
+    "GameHistoryResponse",
+    "GameStateResponse",
+    "HandCardSchema",
+    "ModelLoadRequest",
+    "ModelLoadResponse",
+    "ModelSaveRequest",
+    "ModelSaveResponse",
+    "ModelStatusResponse",
+    "NewGameRequest",
+    "NewGameResponse",
+    "PlayCardRequest",
+    "PlayCardResponse",
+    "TrainRequest",
+    "TrainResponse",
+    "TrickCardSchema",
+    "TrickResult",
+]
