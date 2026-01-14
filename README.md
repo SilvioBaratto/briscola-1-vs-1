@@ -15,6 +15,7 @@ This project trains an AI agent to play **Briscola**, Italy's most popular card 
 
 **Key Features:**
 - Custom PPO (Proximal Policy Optimization) implementation from scratch
+- Trick history encoding for temporal reasoning (inspired by DouZero/RLCard)
 - LLM opponent powered by Ollama for diverse gameplay
 - Full-stack web application to play against the trained AI
 - Comprehensive reward shaping based on Briscola strategy
@@ -110,7 +111,7 @@ Training... ━━━━━━━━━━━━━━━━━━━━   15% W
 │  ┌───────────┐    ┌───────────┐                                │
 │  │Observation│    │  Actor-   │                                │
 │  │  Vector   │    │  Critic   │                                │
-│  │ (245 dim) │    │  Network  │                                │
+│  │ (533 dim) │    │  Network  │                                │
 │  └───────────┘    └───────────┘                                │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -203,13 +204,15 @@ The agent uses an **Actor-Critic** architecture with shared feature extraction:
                            │
                            ▼
               ┌────────────────────────┐
-              │    Observation (245)   │
+              │    Observation (533)   │
               │                        │
               │  • Hand: 120 dims      │
               │  • Trump: 4 dims       │
               │  • Played: 40 dims     │
               │  • Trick: 40 dims      │
               │  • Score: 1 dim        │
+              │  • History: 328 dims   │
+              │    (4 tricks × 82)     │
               └───────────┬────────────┘
                           │
                           ▼
@@ -217,7 +220,7 @@ The agent uses an **Actor-Critic** architecture with shared feature extraction:
               │   Shared Feature       │
               │   Extractor            │
               │                        │
-              │   Linear(245 → 128)    │
+              │   Linear(533 → 128)    │
               │   ReLU                 │
               │   Linear(128 → 128)    │
               │   ReLU                 │
@@ -237,6 +240,54 @@ The agent uses an **Actor-Critic** architecture with shared feature extraction:
 │   (action probs)      │   │   (state value)       │
 └───────────────────────┘   └───────────────────────┘
 ```
+
+### Trick History Encoding
+
+A key design innovation is the **explicit trick history encoding**, which allows the agent to learn temporal patterns without requiring recurrent architectures (LSTM/GRU). 
+
+#### Why History Matters
+
+In Briscola, knowing *which* cards have been played is not enough—*how* they were played matters:
+
+| Pattern | Strategic Implication |
+|---------|----------------------|
+| Opponent led with Ace | They may be "fishing" for your trump |
+| They used trump early | Likely low on trump cards now |
+| Won a trick with a low card | May have stronger cards in reserve |
+| Lost a valuable card | Potential desperation play |
+
+#### Encoding Structure
+
+Each trick record (82 dimensions) encodes:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TRICK RECORD (82 dims)                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Leader's Card          Responder's Card                       │
+│   ┌──────────────┐       ┌──────────────┐                       │
+│   │ One-hot: 40  │       │ One-hot: 40  │                       │
+│   │ (card ID)    │       │ (card ID)    │                       │
+│   └──────────────┘       └──────────────┘                       │
+│                                                                 │
+│   Who Led?               Who Won?                               │
+│   ┌──────────────┐       ┌──────────────┐                       │
+│   │ Binary: 1    │       │ Binary: 1    │                       │
+│   │ (0=me, 1=opp)│       │ (0=me, 1=opp)│                       │
+│   └──────────────┘       └──────────────┘                       │
+│                                                                 │
+│   Total: 40 + 40 + 1 + 1 = 82 dimensions per trick              │
+│   History: 4 tricks × 82 = 328 dimensions                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The agent maintains a rolling window of the last 4 tricks, enabling it to:
+- Track opponent's card depletion patterns
+- Recognize when opponent is conserving trump
+- Learn counter-strategies based on recent play style
+- Anticipate aggressive vs defensive opponents
 
 ### PPO Algorithm
 
@@ -464,21 +515,6 @@ This project uses [Ruff](https://github.com/astral-sh/ruff) for linting with a 1
 
 ---
 
-## References
-
-- Schulman, J., et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347)
-- Schulman, J., et al. (2015). [High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438)
-- [BAML Documentation](https://docs.boundaryml.com/)
-- [Ollama](https://ollama.ai/)
-
----
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">
-  Made with ❤️ for the love of Italian card games and reinforcement learning
-</p>

@@ -1,7 +1,7 @@
 """Briscola game environment for RL training with LLM opponent."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -9,6 +9,16 @@ import numpy as np
 from src.cards import Card, CardValue, Deck
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TrickRecord:
+    """Record of a completed trick."""
+    leader_card: Card      # Card played by the leader
+    responder_card: Card   # Card played by the responder
+    leader_id: int         # 0 = player, 1 = opponent
+    winner_id: int         # 0 = player, 1 = opponent
+    points: int            # Points captured in this trick
 
 
 @dataclass
@@ -25,6 +35,7 @@ class BriscolaState:
     current_trick: List[Tuple[int, Card]]  # (player_id, card)
     player_is_leading: bool
     trick_number: int = 0  # Current trick number (1-20)
+    trick_history: List[TrickRecord] = field(default_factory=list)  # History of completed tricks
 
 
 class BriscolaEnv:
@@ -96,7 +107,7 @@ class BriscolaEnv:
     LISCI_ALTI = {CardValue.SEVEN}  # High non-point cards
     LISCI_BASSI = {CardValue.TWO, CardValue.FOUR, CardValue.FIVE, CardValue.SIX}  # Low cards
 
-    def __init__(self, reward_perspective: str = "player"):
+    def __init__(self, reward_perspective: str = "player", history_length: int = 4):
         """
         Initialize Briscola environment.
 
@@ -106,10 +117,15 @@ class BriscolaEnv:
                 - "opponent": Rewards calculated from opponent's perspective
                   Use this when the RL agent is the opponent (e.g., in API where
                   human is player and RL agent is opponent)
+            history_length: Number of past tricks to include in observation.
+                - Default: 4 (last 4 tricks visible to the agent)
+                - Each trick adds 82 dims: leader card (40) + responder card (40) +
+                  leader_id (1) + winner_id (1)
         """
         self.deck = Deck()
         self.state: Optional[BriscolaState] = None
         self.reward_perspective = reward_perspective
+        self.history_length = history_length
 
         # Observation dimensions
         self.hand_dim = 3 * 40  # 3 cards, 40 possible card types
@@ -118,12 +134,21 @@ class BriscolaEnv:
         self.trick_dim = 40     # Current opponent card (if any)
         self.score_dim = 1      # Score differential
 
+        # Trick history dimensions (per trick):
+        # - Leader card: 40 (one-hot)
+        # - Responder card: 40 (one-hot)
+        # - Leader ID: 1 (0 = player, 1 = opponent)
+        # - Winner ID: 1 (0 = player, 1 = opponent)
+        self.trick_record_dim = 40 + 40 + 1 + 1  # 82 dims per trick
+        self.history_dim = self.history_length * self.trick_record_dim
+
         self.obs_dim = (
             self.hand_dim +
             self.briscola_dim +
             self.played_dim +
             self.trick_dim +
-            self.score_dim
+            self.score_dim +
+            self.history_dim
         )
 
         self.action_dim = 3  # Max 3 cards in hand
@@ -273,6 +298,35 @@ class BriscolaEnv:
         # Encode score differential (normalized to [-1, 1])
         score_diff = (self.state.player_score - self.state.opponent_score) / 120.0
         obs[idx] = score_diff
+        idx += 1
+
+        # Encode trick history (last N tricks)
+        # Get the most recent tricks (up to history_length)
+        recent_tricks = self.state.trick_history[-self.history_length:]
+
+        for i in range(self.history_length):
+            if i < len(recent_tricks):
+                trick = recent_tricks[i]
+                # Leader card (one-hot, 40 dims)
+                leader_card_idx = self._card_to_index(trick.leader_card)
+                obs[idx + leader_card_idx] = 1.0
+                idx += 40
+
+                # Responder card (one-hot, 40 dims)
+                responder_card_idx = self._card_to_index(trick.responder_card)
+                obs[idx + responder_card_idx] = 1.0
+                idx += 40
+
+                # Leader ID (1 dim: 0 = player, 1 = opponent)
+                obs[idx] = float(trick.leader_id)
+                idx += 1
+
+                # Winner ID (1 dim: 0 = player, 1 = opponent)
+                obs[idx] = float(trick.winner_id)
+                idx += 1
+            else:
+                # Empty slots for early game (all zeros)
+                idx += self.trick_record_dim
 
         return obs
 
@@ -635,6 +689,27 @@ class BriscolaEnv:
         else:
             self.state.opponent_score += trick_points
 
+        # Record trick in history before clearing
+        if player_was_leading:
+            # Player led: player_card is leader, opponent_card is responder
+            trick_record = TrickRecord(
+                leader_card=player_card,
+                responder_card=opponent_card,
+                leader_id=0,  # Player led
+                winner_id=winner,
+                points=trick_points
+            )
+        else:
+            # Opponent led: opponent_card is leader, player_card is responder
+            trick_record = TrickRecord(
+                leader_card=opponent_card,
+                responder_card=player_card,
+                leader_id=1,  # Opponent led
+                winner_id=winner,
+                points=trick_points
+            )
+        self.state.trick_history.append(trick_record)
+
         # Add cards to played pile
         self.state.played_cards.extend([card for _, card in self.state.current_trick])
         self.state.current_trick = []
@@ -778,6 +853,17 @@ class BriscolaEnv:
             self.state.player_score += trick_points
         else:
             self.state.opponent_score += trick_points
+
+        # Record trick in history before clearing
+        # In player_respond, opponent always led
+        trick_record = TrickRecord(
+            leader_card=opponent_card,
+            responder_card=player_card,
+            leader_id=1,  # Opponent led
+            winner_id=winner,
+            points=trick_points
+        )
+        self.state.trick_history.append(trick_record)
 
         # Add cards to played pile
         self.state.played_cards.extend([card for _, card in self.state.current_trick])
