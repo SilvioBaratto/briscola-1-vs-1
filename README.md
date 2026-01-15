@@ -7,6 +7,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
+<p align="center">
+  <img src="briscola_game.gif" alt="Briscola RL Agent vs Random Opponent" width="600">
+  <br>
+  <em>RL Agent (bottom) playing against a random opponent</em>
+</p>
+
 ---
 
 ## What is This Project?

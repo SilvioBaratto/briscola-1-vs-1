@@ -1,5 +1,5 @@
 # Base model - using gemma2:2b for speed and simplicity
-FROM gemma2:2b
+FROM mistral:7b
 
 # Set maximum tokens to generate
 PARAMETER num_predict 2046
@@ -15,11 +15,7 @@ PARAMETER repeat_penalty 1.1
 
 # System prompt with Briscola rules in English
 SYSTEM """
-You are a Briscola card game expert. /no_think
-
-CRITICAL: When asked for JSON output, respond with ONLY the raw JSON.
-NO thinking, NO reasoning, NO explanation, NO <think> tags.
-Just output the JSON immediately: {"card_index": 0}
+You are a Briscola card game expert.
 
 BRISCOLA RULES
 
