@@ -11,7 +11,7 @@ from typing import List, Optional
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from src.briscola_env import BriscolaEnv
 from src.cards import Card
@@ -227,8 +227,9 @@ class LLMOpponent:
             action = self._chain.invoke(
                 [HumanMessage(content=build_prompt(hand, briscola, history, opponent_card))]
             )
-        except (OutputParserException, ValueError) as e:
+        except (OutputParserException, ValidationError) as e:
             # The model answered, but not with a usable Action (malformed JSON, wrong type).
+            # Other ValueErrors, such as an empty stream, mean Ollama did not answer.
             logger.warning(f"Unusable LLM answer: {e}")
             return self._fallback(len(hand), start)
         except Exception as e:
@@ -293,8 +294,8 @@ def create_llm_opponent_action_fn(opponent: LLMOpponent):
     Returns:
         Function that takes (hand, briscola, game_history, opponent_card) and returns int
     """
-    # Only used for its card formatting helper; building it once keeps the global
-    # random state, which seeds the decks, untouched between moves.
+    # Only used for its card formatting helper; building it once avoids shuffling a
+    # fresh deck with the global random generator on every move.
     env = BriscolaEnv()
 
     def action_fn(

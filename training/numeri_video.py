@@ -186,8 +186,8 @@ class OpenerStats:
 
     @property
     def win_rate(self) -> float:
-        """Share of games the agent won."""
-        return self.wins / self.games
+        """Share of games the agent won (NaN when the group is empty)."""
+        return self.wins / self.games if self.games else float("nan")
 
 
 def opener_stats(games: List[GameRecord]) -> OpenerStats:
@@ -197,8 +197,8 @@ def opener_stats(games: List[GameRecord]) -> OpenerStats:
         wins=sum(g.winner == AGENT for g in games),
         losses=sum(g.winner == LLM for g in games),
         ties=sum(g.winner == TIE for g in games),
-        mean_agent=statistics.mean(g.agent_score for g in games),
-        mean_llm=statistics.mean(g.llm_score for g in games),
+        mean_agent=statistics.mean(g.agent_score for g in games) if games else float("nan"),
+        mean_llm=statistics.mean(g.llm_score for g in games) if games else float("nan"),
     )
 
 
@@ -271,9 +271,14 @@ class Stats:
         return opener_stats([g for g in self.games if not g.agent_opens])
 
     @property
-    def opener_difference(self) -> Tuple[float, Tuple[float, float]]:
-        """Win rate with the agent opening minus with the LLM opening, and its 95% interval."""
+    def opener_difference(self) -> Optional[Tuple[float, Tuple[float, float]]]:
+        """Win rate with the agent opening minus with the LLM opening, and its 95% interval.
+
+        None when one of the two groups has no game yet.
+        """
         a, b = self.agent_opens, self.llm_opens
+        if not a.games or not b.games:
+            return None
         return a.win_rate - b.win_rate, difference_interval(a.wins, a.games, b.wins, b.games)
 
     @property
@@ -348,6 +353,8 @@ def describe_points(s: Stats) -> str:
 def describe_opener(s: Stats) -> str:
     """Win rate with each opener and the difference."""
     a, b = s.agent_opens, s.llm_opens
+    if s.opener_difference is None:
+        return "non calcolabile: manca il gruppo di partite aperte dall'agente o quello aperte dal modello"
     diff, (low, high) = s.opener_difference
     return (
         f"apre l'agente: {a.wins} vittorie su {a.games} ({pct(a.win_rate)}), punti {it(a.mean_agent)}-{it(a.mean_llm)}; "
@@ -385,7 +392,7 @@ def describe_gifts(s: Stats) -> str:
 
 def describe_invalid(s: Stats) -> str:
     """Unusable LLM answers."""
-    return f"{s.invalid_moves} mosse non valide su {s.moves} mosse del modello"
+    return f"{s.invalid_moves} mosse non valide su {s.moves} mosse del modello (dopo fino a 3 tentativi per mossa)"
 
 
 def describe_seconds(s: Stats) -> str:
@@ -456,26 +463,30 @@ def build_report(s: Stats, results_dir: str = "results") -> str:
     worst, best = by_margin[0], by_margin[-1]
     gifts = avoidable_gifts(s.games)
     moves = lost_point_moves(s.games)
-    diff, (diff_low, diff_high) = s.opener_difference
+    opener_diff = s.opener_difference
     secs = s.seconds
     out: List[str] = []
     add = out.append
 
     add(f"# Numeri per il video: agente PPO contro {model}")
     add("")
-    if s.expected is not None and s.n < s.expected:
+    if s.expected is None:
+        add(f"> Non trovo `{results_dir}/{STATUS_FILE}`: non so se le {s.n} partite sono tutte quelle previste.")
+    elif s.n < s.expected:
         add(
             f"> **ATTENZIONE: i dati sono incompleti.** Ci sono {s.n} partite su {s.expected}: "
             f"il run si è fermato ({s.status}): {s.reason}. I numeri qui sotto valgono solo per queste {s.n} partite."
         )
     else:
-        add(f"> Dati completi: {s.n} partite su {s.expected if s.expected is not None else s.n}, tutte giocate e salvate.")
+        add(f"> Dati completi: {s.n} partite su {s.expected}, tutte giocate e salvate.")
     add("")
     add(
         f"L'agente è `{checkpoint}` (rete PPO già addestrata, mossa sempre la più probabile). "
         f"L'avversario è `{model}` servito da Ollama e chiamato solo con LangChain, temperatura {it(TEMPERATURE)}. "
-        f"Il mazzo della partita *i* si mescola con il seme 42 + *i*, e l'agente apre le partite pari, il modello le dispari: "
-        f"{s.agent_opens.games} partite aperte dall'agente e {s.llm_opens.games} dal modello."
+        f"Il mazzo della partita *i* si mescola con il seme {s.games[0].deck_seed - s.games[0].game_index} + *i*, e l'agente apre le partite pari, il modello le dispari: "
+        f"{s.agent_opens.games} partite aperte dall'agente e {s.llm_opens.games} dal modello. "
+        "Al modello arriva solo il prompt della mossa (briscola, carta dell'avversario, carte già uscite, mano): "
+        "le regole del gioco non gli vengono spiegate."
     )
     add("")
     add(
@@ -532,15 +543,22 @@ def build_report(s: Stats, results_dir: str = "results") -> str:
     a, b = s.agent_opens, s.llm_opens
     add("### 4. Aprire cambia qualcosa?")
     add("")
-    add(f"- **Apre l'agente:** {a.wins} vittorie, {a.losses} sconfitte e {a.ties} pareggi su {a.games} partite ({pct(a.win_rate)} di vittorie); punti medi {it(a.mean_agent)} a {it(a.mean_llm)}.")
-    add(f"- **Apre il modello:** {b.wins} vittorie, {b.losses} sconfitte e {b.ties} pareggi su {b.games} partite ({pct(b.win_rate)} di vittorie); punti medi {it(b.mean_agent)} a {it(b.mean_llm)}.")
-    add(f"- **Differenza:** {it(diff * 100)} punti percentuali per l'agente quando apre, intervallo al 95% da {it(diff_low * 100)} a {it(diff_high * 100)}.")
-    verdict = (
-        "lo zero cade dentro la forbice: con queste partite non si può dire che aprire sia un vantaggio né uno svantaggio"
-        if diff_low <= 0 <= diff_high
-        else "lo zero cade fuori dalla forbice: aprire cambia davvero il risultato"
-    )
-    add(f"- In parole povere: {verdict}.")
+    for label, group in (("Apre l'agente", a), ("Apre il modello", b)):
+        if group.games == 0:
+            add(f"- **{label}:** nessuna partita in questa serie.")
+        else:
+            add(f"- **{label}:** {group.wins} vittorie, {group.losses} sconfitte e {group.ties} pareggi su {group.games} partite ({pct(group.win_rate)} di vittorie); punti medi {it(group.mean_agent)} a {it(group.mean_llm)}.")
+    if opener_diff is None:
+        add("- **Differenza:** non calcolabile finché manca uno dei due gruppi di partite.")
+    else:
+        diff, (diff_low, diff_high) = opener_diff
+        add(f"- **Differenza:** {it(diff * 100)} punti percentuali per l'agente quando apre, intervallo al 95% da {it(diff_low * 100)} a {it(diff_high * 100)}.")
+        verdict = (
+            "lo zero cade dentro la forbice: con queste partite non si può dire che aprire sia un vantaggio né uno svantaggio"
+            if diff_low <= 0 <= diff_high
+            else "lo zero cade fuori dalla forbice: aprire cambia davvero il risultato"
+        )
+        add(f"- In parole povere: {verdict}.")
     add(f"- Si ricalcola con: `{command_for('chi-apre', results_dir)}`")
     add("")
 
@@ -578,8 +596,8 @@ def build_report(s: Stats, results_dir: str = "results") -> str:
 
     add("### 6. Risposte non valide del modello")
     add("")
-    add(f"- **{s.invalid_moves} mosse non valide su {s.moves}** mosse del modello (risposta senza un indice di carta utilizzabile).")
-    add("- In parole povere: l'uscita strutturata di LangChain ha funzionato sempre; il modello non ha mai fatto una mossa impossibile." if s.invalid_moves == 0 else "- In parole povere: in quei casi il programma ha giocato una carta a caso al posto del modello e la mossa è contata come non valida.")
+    add(f"- **{s.invalid_moves} mosse non valide su {s.moves}** mosse del modello (nessun indice di carta utilizzabile dopo fino a 3 tentativi per mossa; i tentativi ripetuti non sono conteggiati a parte).")
+    add("- In parole povere: alla fine dei tentativi il modello ha sempre dato un indice di carta valido; non abbiamo contato quante mosse hanno avuto bisogno di un secondo o terzo tentativo." if s.invalid_moves == 0 else "- In parole povere: in quei casi il programma ha giocato una carta a caso al posto del modello e la mossa è contata come non valida.")
     add(f"- Si ricalcola con: `{command_for('mosse-non-valide', results_dir)}`")
     add("")
 
@@ -606,18 +624,18 @@ def build_report(s: Stats, results_dir: str = "results") -> str:
             f"- **Ma la fortuna pesa:** la miglior partita dell'agente è un {best.agent_score}-{best.llm_score}, la {_game_line(best, results_dir)}. "
             f"Con una sola partita si può dire tutto: servono le {s.n}."
         )
-    if diff_low <= 0 <= diff_high:
+    if opener_diff is not None and opener_diff[1][0] <= 0 <= opener_diff[1][1]:
         n_flag += 1
         add(
             f"- **Chi apre non conta, o conta troppo poco per vederlo:** {pct(a.win_rate)} di vittorie aprendo contro {pct(b.win_rate)} lasciando aprire il modello, "
-            f"con una differenza ({it(diff * 100)} punti) più piccola dell'errore. "
-            "È un numero medio su 100 + 100 partite: nessuna partita singola lo mostra, vale la tabella al punto 4."
+            f"con una differenza ({it(opener_diff[0] * 100)} punti) più piccola dell'errore. "
+            f"È un numero medio su {a.games} + {b.games} partite: nessuna partita singola lo mostra, vale la tabella al punto 4."
         )
     if s.invalid_moves == 0:
         n_flag += 1
         slow = s.slowest_game
         add(
-            f"- **Il modello non sbaglia mai il formato:** 0 mosse non valide su {s.moves}, e in media risponde in {it(statistics.mean(secs), 2)} secondi a mossa. "
+            f"- **Il modello non dà mai una risposta inutilizzabile:** 0 mosse non valide su {s.moves} (dopo fino a 3 tentativi per mossa), e in media risponde in {it(statistics.mean(secs), 2)} secondi a mossa. "
             f"La mossa più lenta ({it(max(secs), 1)} s) è nella {_game_line(slow, results_dir)}."
         )
     if gifts and s.mean_llm > s.mean_agent and total_gifts > 0:

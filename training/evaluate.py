@@ -42,6 +42,7 @@ PROTOCOL = "briscola-eval/v1"
 DEFAULT_CHECKPOINT = "checkpoints/final_model.pt"
 GAMES_DIR = "partite"
 RUN_FILE = "run.json"
+IDENTITY_KEYS = ("protocol", "llm_model", "checkpoint_sha256", "seed")
 STATUS_FILE = "stato.json"
 
 EXIT_OK = 0
@@ -73,7 +74,7 @@ def load_finished_games(results_dir: Path, num_games: int, seed: int) -> dict:
 
     Raises:
         ValueError: If a saved game does not belong to this run (other deck seed or
-            opener), which would mix results of different experiments.
+            opener), or a game file is readable JSON but not a game record.
     """
     finished = {}
     for index in range(num_games):
@@ -82,10 +83,13 @@ def load_finished_games(results_dir: Path, num_games: int, seed: int) -> dict:
             continue
         try:
             record = GameRecord.load(path)
-        except (ValueError, OSError):
-            # Unreadable file: play the game again and overwrite it.
-            logger.warning(f"Ignoring unreadable game file {path}")
+        except json.JSONDecodeError:
+            # Only a truncated write is safe to replay; any other problem could hide
+            # a game that cost real model calls, so it stops the run instead.
+            logger.warning(f"Ignoring half-written game file {path}")
             continue
+        except (ValueError, OSError) as e:
+            raise ValueError(f"{path} cannot be used ({e}); move it away to play the game again") from e
         if record.game_index != index or record.deck_seed != seed + index or record.agent_opens != agent_opens(index):
             raise ValueError(f"{path} was played with other deck seeds or openers than this run")
         if len(record.tricks) != 20:
@@ -117,34 +121,46 @@ def _write_json(path: Path, data: dict) -> None:
 def check_run_identity(results_dir: Path, identity: dict) -> None:
     """Write ``run.json`` the first time, and refuse to continue a run made with other settings.
 
+    Only the weights (by hash), the model, the protocol and the seed identify a run; the
+    checkpoint path is kept for information, so the same weights under another path resume.
+
     Raises:
-        ValueError: If ``results_dir`` already holds a run with a different model,
-            checkpoint or seed.
+        ValueError: If ``results_dir`` already holds a run with other weights, model or
+            seed, or holds games without a ``run.json``.
     """
     path = Path(results_dir) / RUN_FILE
     if path.exists():
         saved = json.loads(path.read_text(encoding="utf-8"))
-        if any(saved.get(key) != value for key, value in identity.items()):
+        if any(saved.get(key) != identity[key] for key in IDENTITY_KEYS):
             raise ValueError(
                 f"{path} describes a different run ({saved}); use another --results-dir "
                 "or move the old results away"
             )
         return
+    if any((Path(results_dir) / GAMES_DIR).glob("partita_*.json")):
+        # Without run.json there is no proof of which weights played these games.
+        raise ValueError(f"{Path(results_dir) / GAMES_DIR} holds games but {path} is missing")
     _write_json(path, identity)
 
 
 def write_status(results_dir: Path, num_games: int, games_done: int, status: str, reason: str) -> None:
-    """Record how far the run got and why it stopped, next to the games."""
-    _write_json(
-        Path(results_dir) / STATUS_FILE,
-        {
-            "games_expected": num_games,
-            "games_done": games_done,
-            "status": status,
-            "reason": reason,
-            "updated_at": _utc_now(),
-        },
-    )
+    """Record how far the run got and why it stopped, next to the games.
+
+    The file is left alone when nothing but the time would change, so rerunning a
+    finished evaluation does not dirty the committed results.
+    """
+    path = Path(results_dir) / STATUS_FILE
+    state = {
+        "games_expected": num_games,
+        "games_done": games_done,
+        "status": status,
+        "reason": reason,
+    }
+    if path.exists():
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        if {key: saved.get(key) for key in state} == state:
+            return
+    _write_json(path, {**state, "updated_at": _utc_now()})
 
 
 def agent_action(model: ActorCritic, env: BriscolaEnv, obs: np.ndarray) -> int:

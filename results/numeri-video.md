@@ -2,7 +2,7 @@
 
 > Dati completi: 200 partite su 200, tutte giocate e salvate.
 
-L'agente è `checkpoints/final_model.pt` (rete PPO già addestrata, mossa sempre la più probabile). L'avversario è `gemma4:31b-cloud` servito da Ollama e chiamato solo con LangChain, temperatura 0,1. Il mazzo della partita *i* si mescola con il seme 42 + *i*, e l'agente apre le partite pari, il modello le dispari: 100 partite aperte dall'agente e 100 dal modello.
+L'agente è `checkpoints/final_model.pt` (rete PPO già addestrata, mossa sempre la più probabile). L'avversario è `gemma4:31b-cloud` servito da Ollama e chiamato solo con LangChain, temperatura 0,1. Il mazzo della partita *i* si mescola con il seme 42 + *i*, e l'agente apre le partite pari, il modello le dispari: 100 partite aperte dall'agente e 100 dal modello. Al modello arriva solo il prompt della mossa (briscola, carta dell'avversario, carte già uscite, mano): le regole del gioco non gli vengono spiegate.
 
 Ogni numero ha accanto il comando che lo ricalcola dai file in `results/partite/`. Rilanciando la valutazione i mazzi e chi apre sono gli stessi, ma il modello è un servizio remoto e può rispondere in modo un po' diverso: le mosse, e quindi i punteggi, possono cambiare di poco.
 
@@ -73,8 +73,8 @@ L'agente addestrato perde contro il modello: 75 vittorie contro 121 sconfitte (3
 
 ### 6. Risposte non valide del modello
 
-- **0 mosse non valide su 4000** mosse del modello (risposta senza un indice di carta utilizzabile).
-- In parole povere: l'uscita strutturata di LangChain ha funzionato sempre; il modello non ha mai fatto una mossa impossibile.
+- **0 mosse non valide su 4000** mosse del modello (nessun indice di carta utilizzabile dopo fino a 3 tentativi per mossa; i tentativi ripetuti non sono conteggiati a parte).
+- In parole povere: alla fine dei tentativi il modello ha sempre dato un indice di carta valido; non abbiamo contato quante mosse hanno avuto bisogno di un secondo o terzo tentativo.
 - Si ricalcola con: `python -m training.numeri_video --mostra mosse-non-valide`
 
 ### 7. Quanto ci mette a muovere
@@ -88,7 +88,7 @@ L'agente addestrato perde contro il modello: 75 vittorie contro 121 sconfitte (3
 - **L'agente addestrato perde contro il modello**, e non per sfortuna: 37,5% di vittorie, e anche il limite alto della forbice (44,4%) resta sotto il 50%. Una rete addestrata apposta per questo gioco perde con un modello generico. La partita che lo mostra: partita 10 (apre l'agente): agente 41, modello 79, file `results/partite/partita_010.json`. Il caso peggiore è la partita 141 (apre il modello): agente 2, modello 118, file `results/partite/partita_141.json`.
 - **Ma la fortuna pesa:** la miglior partita dell'agente è un 120-0, la partita 143 (apre il modello): agente 120, modello 0, file `results/partite/partita_143.json`. Con una sola partita si può dire tutto: servono le 200.
 - **Chi apre non conta, o conta troppo poco per vederlo:** 36,0% di vittorie aprendo contro 39,0% lasciando aprire il modello, con una differenza (-3,0 punti) più piccola dell'errore. È un numero medio su 100 + 100 partite: nessuna partita singola lo mostra, vale la tabella al punto 4.
-- **Il modello non sbaglia mai il formato:** 0 mosse non valide su 4000, e in media risponde in 0,40 secondi a mossa. La mossa più lenta (8,3 s) è nella partita 190 (apre l'agente): agente 34, modello 86, file `results/partite/partita_190.json`.
+- **Il modello non dà mai una risposta inutilizzabile:** 0 mosse non valide su 4000 (dopo fino a 3 tentativi per mossa), e in media risponde in 0,40 secondi a mossa. La mossa più lenta (8,3 s) è nella partita 190 (apre l'agente): agente 34, modello 86, file `results/partite/partita_190.json`.
 - **Il modello vince anche se regala punti:** 408 regali evitabili (2325 punti) nel complesso. La partita in cui ne ha regalati di più e ha vinto lo stesso: partita 120 (apre l'agente): agente 58, modello 62, file `results/partite/partita_120.json`, con 28 punti risparmiabili.
 
 ## Le due partite da mostrare

@@ -27,8 +27,15 @@ def test_save_leaves_no_temporary_file(tmp_path, make_game):
 
 @pytest.mark.parametrize("content", ["", "{", "[]", '{"format": "other"}', '{"format": "briscola-game/v1"}'])
 def test_broken_files_are_rejected_as_value_errors(tmp_path, content):
-    """Any unreadable or foreign file raises ValueError, which resume treats as a missing game."""
+    """Any unreadable or foreign file raises ValueError, the evaluator then decides whether to replay or stop."""
     path = tmp_path / "bad.json"
     path.write_text(content, encoding="utf-8")
     with pytest.raises(ValueError):
         GameRecord.load(path)
+
+
+def test_saved_files_are_readable_by_others(tmp_path, make_game):
+    """Results are shared, so the atomic write must not leave them private to the owner."""
+    path = tmp_path / "partita_000.json"
+    make_game(0).save(path)
+    assert path.stat().st_mode & 0o044 == 0o044

@@ -160,3 +160,13 @@ def test_negative_index_is_invalid(fake_chat):
     opponent = LLMOpponent()
     opponent.choose_action(["7🪙"], "5⚔️", "", None)
     assert opponent.last_move.valid is False
+
+
+def test_empty_stream_is_an_outage_not_an_invalid_move(fake_chat):
+    """A plain ValueError from the client (no data from Ollama) must stop a strict run."""
+    fake_chat(failing(ValueError("No data received from Ollama stream.")))
+    with pytest.raises(OllamaUnavailableError):
+        LLMOpponent(strict=True).choose_action(HAND, "5⚔️", "", None)
+    relaxed = LLMOpponent()
+    assert 0 <= relaxed.choose_action(HAND, "5⚔️", "", None) < 3
+    assert relaxed.last_move.valid is False

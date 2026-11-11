@@ -149,3 +149,55 @@ def test_opponent_errors_other_than_ollama_down_do_not_hide_in_the_loop(tmp_path
     broken = ScriptedOpponent(fail_on_call=(1, RuntimeError("bug")))
     with pytest.raises(RuntimeError):
         run_evaluation(config(tmp_path, checkpoint), lambda timeout: broken)
+
+
+def test_rerunning_a_finished_evaluation_leaves_every_file_untouched(tmp_path, checkpoint, monkeypatch):
+    """Nothing is rewritten when all games are already saved, not even the status timestamp."""
+    clock = iter(f"2026-01-01T00:00:{second:02d}+00:00" for second in range(60))
+    monkeypatch.setattr(evaluate, "_utc_now", lambda: next(clock))
+    assert run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent()) == EXIT_OK
+    results = tmp_path / "results"
+    before = {path.name: path.read_bytes() for path in results.rglob("*.json")}
+    assert run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent()) == EXIT_OK
+    assert {path.name: path.read_bytes() for path in results.rglob("*.json")} == before
+
+
+def test_games_without_a_run_file_are_not_adopted(tmp_path, checkpoint):
+    """If run.json is lost, the saved games are refused: nothing proves which weights played them."""
+    run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent())
+    (tmp_path / "results" / "run.json").unlink()
+    assert run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent()) == EXIT_ERROR
+
+
+def test_the_same_weights_under_another_path_resume(tmp_path, checkpoint):
+    """The run is identified by the hash of the weights, not by where the file lives."""
+    import shutil
+
+    run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent())
+    copy = tmp_path / "renamed.pt"
+    shutil.copy(checkpoint, copy)
+    opponent = ScriptedOpponent()
+    assert run_evaluation(config(tmp_path, str(copy), num_games=3), lambda timeout: opponent) == EXIT_OK
+    assert opponent.calls == 20
+
+
+def test_other_weights_are_refused(tmp_path, checkpoint, model):
+    """A different checkpoint cannot continue a run, even under the same file name."""
+    import torch
+
+    run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent())
+    torch.manual_seed(99)
+    other = type(model)(obs_dim=model.shared[0].in_features, action_dim=3, hidden_dim=16)
+    torch.save({"model_state_dict": other.state_dict()}, checkpoint)
+    assert run_evaluation(config(tmp_path, checkpoint, num_games=3), lambda timeout: ScriptedOpponent()) == EXIT_ERROR
+
+
+def test_a_foreign_json_file_stops_the_run_instead_of_being_overwritten(tmp_path, checkpoint):
+    """Only a truncated write is replayed; valid JSON of another format is left for the owner to look at."""
+    run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: ScriptedOpponent())
+    path = game_path(tmp_path / "results", 1)
+    path.write_text('{"format": "briscola-game/v2"}', encoding="utf-8")
+    opponent = ScriptedOpponent()
+    assert run_evaluation(config(tmp_path, checkpoint, num_games=2), lambda timeout: opponent) == EXIT_ERROR
+    assert opponent.calls == 0
+    assert path.read_text(encoding="utf-8") == '{"format": "briscola-game/v2"}'

@@ -152,3 +152,20 @@ def test_write_outputs_creates_the_report_and_both_games(games, tmp_path):
         assert target.exists() == (game is not None)
         if game is not None:
             assert GameRecord.load(target) == game
+
+
+def test_report_survives_a_run_with_a_single_game(make_game):
+    """An evaluation stopped after one game still gets a report, with the missing group stated."""
+    report = nv.build_report(stats_for([make_game(0)], expected=200, status="interrupted", reason="refused"))
+    assert "ATTENZIONE" in report
+    assert "nessuna partita in questa serie" in report
+    assert "non calcolabile" in report
+    assert "nan" not in report.lower()
+
+
+def test_report_states_what_it_cannot_know(games):
+    """Without stato.json the report does not claim the data is complete, and the seed comes from the games."""
+    report = nv.build_report(stats_for(games, expected=None, status="unknown", reason=""))
+    assert "Dati completi" not in report
+    assert "stato.json" in report
+    assert "seme 42 + *i*" in report

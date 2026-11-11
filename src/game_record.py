@@ -165,6 +165,8 @@ class GameRecord:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(self.to_dict(), handle, ensure_ascii=False, separators=(", ", ": "))
                 handle.write("\n")
+            # mkstemp creates the file private to its owner; results are meant to be shared.
+            os.chmod(tmp_name, 0o644)
             os.replace(tmp_name, path)
         except BaseException:
             Path(tmp_name).unlink(missing_ok=True)
