@@ -24,8 +24,6 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY src/ ./src/
 COPY api/ ./api/
 COPY briscola_rl/ ./briscola_rl/
-COPY baml_client/ ./baml_client/
-COPY baml_src/ ./baml_src/
 
 # Create necessary directories for models and checkpoints
 RUN mkdir -p models checkpoints

@@ -20,8 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY training/ ./training/
 COPY briscola_rl/ ./briscola_rl/
-COPY baml_client/ ./baml_client/
-COPY baml_src/ ./baml_src/
 COPY pyproject.toml .
 
 # Create directories for checkpoints and models

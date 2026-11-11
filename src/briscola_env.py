@@ -213,9 +213,26 @@ class BriscolaEnv:
         # Close game in end phase
         return self._get_game_phase() == "end" and score_diff <= 10
 
-    def reset(self) -> np.ndarray:
-        """Reset environment for new game."""
-        self.deck.reset()
+    def reset(
+        self,
+        deck_order: Optional[List[Card]] = None,
+        player_is_leading: Optional[bool] = None,
+    ) -> np.ndarray:
+        """Reset environment for new game.
+
+        Args:
+            deck_order: Fixed deck, drawn from the end (see `Deck.shuffled_cards`).
+                A random shuffle when omitted.
+            player_is_leading: Whether the player opens the first trick. Drawn at
+                random when omitted.
+
+        Returns:
+            The first observation.
+        """
+        if deck_order is None:
+            self.deck.reset()
+        else:
+            self.deck.set_order(deck_order)
 
         # Deal initial hands
         player_hand: List[Card] = []
@@ -235,8 +252,8 @@ class BriscolaEnv:
         assert briscola_card is not None, "Deck should have briscola card"
         briscola_suit = briscola_card.suit
 
-        # Random starting player
-        player_is_leading = np.random.rand() > 0.5
+        if player_is_leading is None:
+            player_is_leading = bool(np.random.rand() > 0.5)
 
         self.state = BriscolaState(
             player_hand=player_hand,
@@ -759,19 +776,7 @@ class BriscolaEnv:
 
     def card_to_string(self, card: Card) -> str:
         """Convert card to compact string format."""
-        value_map = {
-            CardValue.ACE: "A",
-            CardValue.TWO: "2",
-            CardValue.THREE: "3",
-            CardValue.FOUR: "4",
-            CardValue.FIVE: "5",
-            CardValue.SIX: "6",
-            CardValue.SEVEN: "7",
-            CardValue.JACK: "J",
-            CardValue.HORSE: "H",
-            CardValue.KING: "K",
-        }
-        return f"{value_map[card.value]} {card.suit}"
+        return card.to_string()
 
     def get_state_for_llm(self, hand: List[Card], opponent_card: Optional[Card] = None) -> Dict:
         """Get state formatted for LLM prompt."""

@@ -1,0 +1,7 @@
+{
+  "protocol": "briscola-eval/v1",
+  "llm_model": "gemma4:31b-cloud",
+  "checkpoint": "checkpoints/final_model.pt",
+  "checkpoint_sha256": "ae2bfc7e6cf293b72eaefc3f0fc271d46afafe231e3ed9ad0e55e4561dc32839",
+  "seed": 42
+}

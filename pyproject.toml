@@ -21,6 +21,9 @@ dependencies = [
     "tqdm>=4.66.0",
     "tensorboard>=2.15.0",
     "rich>=13.0.0",
+    "langchain-ollama>=1.0.0",
+    "langchain-core>=1.0.0",
+    "pydantic>=2.5.0",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +41,14 @@ briscola = "briscola_rl.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["briscola_rl*", "src*", "training*", "visualization*", "baml_client*"]
+include = ["briscola_rl*", "src*", "training*", "visualization*"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Newer tenacity releases rename the retry wait parameter that LangChain forwards to them.
+# Older releases only know the old name, so the opponent keeps it and the warning is muted.
+filterwarnings = ["ignore:The 'initial' parameter is deprecated:DeprecationWarning"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

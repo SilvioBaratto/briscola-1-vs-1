@@ -1,5 +1,8 @@
 """
 Render Briscola game (RL Agent vs LLM) as GIF or MP4 using HTML + Playwright.
+
+A new game is simulated by default; ``--replay`` instead redraws a game saved by
+``training.evaluate`` (for instance the ones in ``results/da-mostrare/``).
 """
 
 import argparse
@@ -8,7 +11,7 @@ import random
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -16,6 +19,7 @@ from playwright.sync_api import sync_playwright, Playwright, Browser, Page
 
 from src.briscola_env import BriscolaEnv
 from src.cards import Card
+from src.game_record import GameRecord
 from src.models.actor_critic import ActorCritic
 from visualization.utils import (
     CSS, SUIT_CSS, VALUE_SHORT, SUIT_SYMBOLS,
@@ -255,17 +259,30 @@ class BriscolaGameSimulator:
         device: str = "cpu",
         use_llm: bool = True,
         show_llm_hand: bool = True,
+        replay: Optional[GameRecord] = None,
     ):
+        """
+        Args:
+            model_path: RL checkpoint to play with; unused when replaying.
+            device: Torch device.
+            use_llm: Ask the LLM for its moves; unused when replaying.
+            show_llm_hand: Draw the LLM's cards face up.
+            replay: A saved game whose deck, opener and moves are redrawn instead
+                of simulating a new one.
+        """
         self.device = device
-        self.use_llm = use_llm
+        self.replay = replay
+        self.use_llm = use_llm and replay is None
         self.show_llm_hand = show_llm_hand
         self.frames: List[GameFrame] = []
+        self._replay_agent_moves: Iterator[int] = iter(())
+        self._replay_llm_moves: Iterator[int] = iter(())
 
         # Load RL model - get dimensions from checkpoint
         self.model: Optional[ActorCritic] = None
         history_length = 0  # Default for compatibility with older checkpoints
 
-        if model_path and os.path.exists(model_path):
+        if model_path and os.path.exists(model_path) and replay is None:
             checkpoint = torch.load(model_path, map_location=device, weights_only=False)
             # Extract dimensions from saved weights
             shared_weight = checkpoint['model_state_dict']['shared.0.weight']
@@ -305,11 +322,12 @@ class BriscolaGameSimulator:
                 obs_dim=self.env.obs_dim,
                 action_dim=self.env.action_dim,
             )
-            print("Warning: No model loaded, using random RL agent")
+            if replay is None:
+                print("Warning: No model loaded, using random RL agent")
 
         # Initialize LLM opponent
         self.llm_opponent = None
-        if use_llm:
+        if self.use_llm:
             try:
                 from src.agents.llm_opponent import LLMOpponent, create_llm_opponent_action_fn
                 self.llm_opponent = LLMOpponent()
@@ -321,6 +339,8 @@ class BriscolaGameSimulator:
 
     def _get_rl_action(self, obs: np.ndarray) -> int:
         """Get action from RL model."""
+        if self.replay is not None:
+            return next(self._replay_agent_moves)
         assert self.model is not None
         obs_tensor = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
         mask = self.env.get_action_mask()
@@ -340,6 +360,8 @@ class BriscolaGameSimulator:
         opponent_card: Optional[Card]
     ) -> int:
         """Get action from LLM opponent (or random fallback)."""
+        if self.replay is not None:
+            return next(self._replay_llm_moves)
         if self.llm_opponent is not None:
             return self.llm_action_fn(hand, briscola, game_history, opponent_card)
         # Random fallback
@@ -399,7 +421,15 @@ class BriscolaGameSimulator:
         self.frames = []
 
         # Reset environment
-        obs = self.env.reset()
+        if self.replay is not None:
+            self._replay_agent_moves = iter([t.agent_index for t in self.replay.tricks])
+            self._replay_llm_moves = iter([t.llm_index for t in self.replay.tricks])
+            obs = self.env.reset(
+                deck_order=[Card.from_string(text) for text in self.replay.deck_order],
+                player_is_leading=self.replay.agent_opens,
+            )
+        else:
+            obs = self.env.reset()
         assert self.env.state is not None
 
         # Initial frame
@@ -502,6 +532,12 @@ class BriscolaGameSimulator:
         rl_score = self.env.state.player_score
         llm_score = self.env.state.opponent_score
 
+        if self.replay is not None and (rl_score, llm_score) != (self.replay.agent_score, self.replay.llm_score):
+            raise ValueError(
+                f"Replay ended {rl_score}-{llm_score} but the record says "
+                f"{self.replay.agent_score}-{self.replay.llm_score}: the game rules changed since it was saved"
+            )
+
         if rl_score > llm_score:
             winner = "RL Agent"
             message = f"RL Agent wins! {rl_score} - {llm_score}"
@@ -583,6 +619,9 @@ def main():
                        help="Hide LLM's cards (show face-down)")
     parser.add_argument("--keep-frames", action="store_true",
                        help="Keep PNG frames after generating video")
+    parser.add_argument("--replay", default=None,
+                       help="Saved game (JSON from training.evaluate) to redraw; "
+                            "replaces the simulation, so --model, --seed and --no-llm are ignored")
     args = parser.parse_args()
 
     # Set random seed
@@ -591,9 +630,13 @@ def main():
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
 
-    print(f"Model: {args.model}")
+    replay = GameRecord.load(args.replay) if args.replay else None
+    if replay is not None:
+        print(f"Replay: {args.replay} (game {replay.game_index}, {replay.agent_score}-{replay.llm_score})")
+    else:
+        print(f"Model: {args.model}")
+        print(f"Using LLM: {not args.no_llm}")
     print(f"Output: {args.output}")
-    print(f"Using LLM: {not args.no_llm}")
 
     # Prepare frames directory
     frames_dir = "visualization/frames"
@@ -608,6 +651,7 @@ def main():
         model_path=args.model,
         use_llm=not args.no_llm,
         show_llm_hand=not args.hide_llm_hand,
+        replay=replay,
     )
     winner = simulator.simulate()
     print(f"Winner: {winner}, Frames: {len(simulator.frames)}")

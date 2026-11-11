@@ -308,7 +308,7 @@ def main():
     parser.add_argument("--save-dir", type=str, default="checkpoints", help="Save directory")
     parser.add_argument("--log-interval", type=int, default=10, help="Logging interval")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--llm-timeout", type=float, default=5.0, help="LLM timeout (seconds)")
+    parser.add_argument("--llm-timeout", type=float, default=60.0, help="LLM timeout (seconds)")
     args = parser.parse_args()
 
     # Set seeds
