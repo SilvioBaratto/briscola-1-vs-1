@@ -31,13 +31,14 @@ This project trains an AI agent to play **Briscola**, Italy's most popular card 
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
-2. [How It Works](#how-it-works)
-3. [The Game: Briscola](#the-game-briscola)
-4. [Technical Deep Dive](#technical-deep-dive)
-5. [Web Application](#web-application)
-6. [Project Structure](#project-structure)
-7. [Configuration](#configuration)
-8. [Contributing](#contributing)
+2. [Avversario gemma4:31b-cloud via Ollama](#avversario-gemma431b-cloud-via-ollama)
+3. [How It Works](#how-it-works)
+4. [The Game: Briscola](#the-game-briscola)
+5. [Technical Deep Dive](#technical-deep-dive)
+6. [Web Application](#web-application)
+7. [Project Structure](#project-structure)
+8. [Configuration](#configuration)
+9. [Contributing](#contributing)
 
 ---
 
@@ -66,12 +67,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # 3. Install the package
 pip install -e .
 
-# 4. Setup LLM opponent
-ollama pull mistral:7b
-ollama create briscola -f Modelfile
-
-# 5. Generate BAML client
-baml-cli generate
+# 4. Setup LLM opponent (cloud model, run `ollama signin` once if needed)
+ollama pull gemma4:31b-cloud
 ```
 
 ### Train Your First Agent
@@ -94,6 +91,48 @@ Training... ━━━━━━━━━━━━━━━━━━━━   15% W
 | `WR` | Win Rate - percentage of games won |
 | `R` | Reward - average cumulative reward per game |
 | `PL` | Policy Loss - negative means the agent is improving |
+
+---
+
+## Avversario gemma4:31b-cloud via Ollama
+
+L'unico avversario LLM è `gemma4:31b-cloud`, servito da Ollama e chiamato solo con
+LangChain (`ChatOllama` del pacchetto `langchain-ollama`, uscita strutturata con un modello
+Pydantic, temperatura 0,1, massimo 500 token, due ritentativi con attesa crescente). Il
+`Modelfile` con Mistral 7B resta nel repository ma non si usa.
+
+L'indirizzo di Ollama si legge da `OLLAMA_BASE_URL` (default `http://localhost:11434`, senza
+il suffisso `/v1`). Non servono chiavi API.
+
+```bash
+# Dipendenze (con il renderer delle partite) e modello
+pip install -e ".[viz]"
+playwright install chromium     # serve solo per ridisegnare le partite
+ollama list                     # deve comparire gemma4:31b-cloud
+
+# 200 partite: l'agente (checkpoints/final_model.pt) apre le pari, il modello le dispari.
+# Il mazzo della partita i usa il seme 42 + i. Ogni partita finita è salvata subito in
+# results/partite/; se il run si ferma (Ollama non risponde, un limite d'uso) basta
+# rilanciare lo stesso comando: riparte dalla prima partita mancante.
+python -m training.evaluate
+python -m training.evaluate --max-minutes 8     # opzionale: si ferma da solo e si riprende
+
+# I numeri per il video e le due partite da mostrare (results/numeri-video.md, results/da-mostrare/)
+python -m training.numeri_video
+python -m training.numeri_video --mostra percentuale-vittorie   # un solo numero
+
+# Ridisegna una partita salvata (una vinta e una persa dall'agente)
+python -m visualization.render_game --replay results/da-mostrare/partita-vinta.json --output partita-vinta.gif
+python -m visualization.render_game --replay results/da-mostrare/partita-persa.json --output partita-persa.gif
+
+# Test
+pip install -e ".[dev]" && pytest
+```
+
+Se Ollama non risponde, `training.evaluate` si ferma, non inventa mosse e scrive il motivo in
+`results/stato.json`; `results/numeri-video.md` riporta in cima quante partite ci sono e perché
+il run si è fermato. Una risposta del modello che non contiene un indice di carta valido conta
+come mossa non valida: al suo posto si gioca una carta a caso e la mossa è registrata come tale.
 
 ---
 
@@ -432,11 +471,20 @@ briscola-1-vs-1/
 │   │   ├── ppo.py                # PPO algorithm
 │   │   ├── gae.py                # Advantage estimation
 │   │   └── replay_buffer.py      # Experience storage
+│   ├── game_record.py            # JSON record of an evaluated game
 │   └── agents/
-│       └── llm_opponent.py       # BAML/Ollama opponent
+│       └── llm_opponent.py       # LangChain/Ollama opponent (gemma4:31b-cloud)
 │
 ├── training/
-│   └── train_vs_llm.py           # Training loop
+│   ├── train_vs_llm.py           # Training loop
+│   ├── evaluate.py               # Resumable 200-game evaluation vs the LLM
+│   └── numeri_video.py           # Statistics for the video
+│
+├── visualization/
+│   └── render_game.py            # GIF/MP4 of a game (new or --replay)
+│
+├── results/                      # Saved games, stato.json, numeri-video.md
+├── tests/                        # pytest suite
 │
 ├── briscola_rl/
 │   └── cli.py                    # Command-line interface
@@ -452,12 +500,8 @@ briscola-1-vs-1/
 │   │   └── models/               # TypeScript interfaces
 │   └── Dockerfile
 │
-├── baml_src/                     # LLM function definitions
-│   ├── clients.baml              # Ollama client config
-│   └── briscola_functions.baml   # Card selection logic
-│
 ├── checkpoints/                  # Saved model weights
-├── Modelfile                     # Ollama model definition
+├── Modelfile                     # Old Mistral 7B model definition (not used)
 ├── docker-compose.yml            # Container orchestration
 ├── pyproject.toml                # Python package config
 └── requirements.txt              # Dependencies
@@ -492,7 +536,7 @@ briscola train \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama server URL |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL (no `/v1` suffix) |
 | `ENVIRONMENT` | `development` | API environment |
 
 ---

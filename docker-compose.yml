@@ -15,8 +15,6 @@ services:
       - ./api:/app/api
       - ./models:/app/models
       - ./checkpoints:/app/checkpoints
-      - ./baml_client:/app/baml_client
-      - ./baml_src:/app/baml_src
     environment:
       - PYTHONUNBUFFERED=1
       - ENVIRONMENT=development

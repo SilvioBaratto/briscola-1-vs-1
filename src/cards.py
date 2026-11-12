@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List
+from typing import List, Optional
 import random
 
 
@@ -60,6 +60,21 @@ class CardValue(IntEnum):
         return points_map[value]
 
 
+VALUE_CODES = {
+    CardValue.ACE: "A",
+    CardValue.TWO: "2",
+    CardValue.THREE: "3",
+    CardValue.FOUR: "4",
+    CardValue.FIVE: "5",
+    CardValue.SIX: "6",
+    CardValue.SEVEN: "7",
+    CardValue.JACK: "J",
+    CardValue.HORSE: "H",
+    CardValue.KING: "K",
+}
+CODE_VALUES = {code: value for value, code in VALUE_CODES.items()}
+
+
 @dataclass
 class Card:
     """Represents a single card in Briscola."""
@@ -85,6 +100,28 @@ class Card:
 
     def __repr__(self) -> str:
         return f"Card({self.value.name}, {self.suit})"
+
+    def to_string(self) -> str:
+        """Return the compact text form used in prompts and game records, e.g. ``"A coins"``."""
+        return f"{VALUE_CODES[self.value]} {self.suit}"
+
+    @classmethod
+    def from_string(cls, text: str) -> "Card":
+        """Parse the text produced by `to_string`.
+
+        Args:
+            text: Value code and suit separated by one space, e.g. ``"3 swords"``.
+
+        Returns:
+            The matching card.
+
+        Raises:
+            ValueError: If the value code or the suit is unknown.
+        """
+        code, _, suit = text.partition(" ")
+        if code not in CODE_VALUES or suit not in Deck.SUITS:
+            raise ValueError(f"Unknown card: {text!r}")
+        return cls(CODE_VALUES[code], suit)
 
     def beats(self, other: "Card", briscola_suit: str, is_leading: bool = False) -> bool:
         """
@@ -130,19 +167,55 @@ class Deck:
         self.briscola_card: Card | None = None
         self.reset()
 
+    @classmethod
+    def ordered_cards(cls) -> List[Card]:
+        """Return the 40 cards in a fixed, unshuffled order."""
+        return [Card(value, suit) for suit in cls.SUITS for value in CardValue]
+
+    @classmethod
+    def shuffled_cards(cls, seed: int) -> List[Card]:
+        """Return a reproducible shuffle of the 40 cards.
+
+        Uses a private generator so the result neither depends on nor disturbs
+        the global ``random`` state. Cards are drawn from the end of the list.
+
+        Args:
+            seed: Seed that identifies the deck.
+
+        Returns:
+            The 40 cards in draw order (last element is drawn first).
+        """
+        cards = cls.ordered_cards()
+        random.Random(seed).shuffle(cards)
+        return cards
+
     def reset(self) -> None:
         """Reset deck with all 40 cards and shuffle."""
-        self.cards = [
-            Card(value, suit)
-            for suit in self.SUITS
-            for value in CardValue
-        ]
+        self.cards = self.ordered_cards()
         self.briscola_card = None
         self.shuffle()
 
-    def shuffle(self) -> None:
-        """Shuffle the deck."""
-        random.shuffle(self.cards)
+    def set_order(self, cards: List[Card]) -> None:
+        """Replace the deck with a given card order (cards are drawn from the end).
+
+        Args:
+            cards: Exactly the 40 cards of the deck, each once.
+
+        Raises:
+            ValueError: If ``cards`` is not a full deck.
+        """
+        if len(cards) != 40 or any(cards.count(card) != 1 for card in self.ordered_cards()):
+            raise ValueError("deck order must hold each of the 40 cards exactly once")
+        self.cards = list(cards)
+        self.briscola_card = None
+
+    def shuffle(self, rng: Optional[random.Random] = None) -> None:
+        """Shuffle the deck.
+
+        Args:
+            rng: Generator to shuffle with; the global ``random`` module when omitted.
+        """
+        (rng or random).shuffle(self.cards)
 
     def draw(self) -> Card | None:
         """Draw a card from the top of the deck."""

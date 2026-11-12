@@ -1,0 +1,64 @@
+{
+  "leading_full": {
+    "inputs": {
+      "hand": [
+        "A🪙",
+        "3⚔️",
+        "K🏆"
+      ],
+      "briscola": "5⚔️",
+      "history": "- 🪙: 7,J\n- ⚔️: 4\n- 🪵: 2,4",
+      "opponent_card": null
+    },
+    "prompt": "=== STATE ===\nTrump: 5⚔️\nPlayed:\n- 🪙: 7,J\n- ⚔️: 4\n- 🪵: 2,4\n=== HAND ===\n0:A🪙 1:3⚔️ 2:K🏆 \nPick: 0,1,2\nAnswer in JSON using this schema:\n{\n  card_index: int,\n}"
+  },
+  "responding_full": {
+    "inputs": {
+      "hand": [
+        "7🪙",
+        "J⚔️",
+        "5🏆"
+      ],
+      "briscola": "5⚔️",
+      "history": "- 🪙: A,3\n- 🏆: 2\n- 🪵: K",
+      "opponent_card": "K🏆"
+    },
+    "prompt": "=== STATE ===\nTrump: 5⚔️\nOpp: K🏆\nPlayed:\n- 🪙: A,3\n- 🏆: 2\n- 🪵: K\n=== HAND ===\n0:7🪙 1:J⚔️ 2:5🏆 \nPick: 0,1,2\nAnswer in JSON using this schema:\n{\n  card_index: int,\n}"
+  },
+  "opening_empty_history": {
+    "inputs": {
+      "hand": [
+        "A🪙",
+        "3⚔️",
+        "K🏆"
+      ],
+      "briscola": "4🪵",
+      "history": "",
+      "opponent_card": null
+    },
+    "prompt": "=== STATE ===\nTrump: 4🪵\n=== HAND ===\n0:A🪙 1:3⚔️ 2:K🏆 \nPick: 0,1,2\nAnswer in JSON using this schema:\n{\n  card_index: int,\n}"
+  },
+  "last_trick_single_card": {
+    "inputs": {
+      "hand": [
+        "H🪵"
+      ],
+      "briscola": "4🪵",
+      "history": "- 🪙: A",
+      "opponent_card": "2🏆"
+    },
+    "prompt": "=== STATE ===\nTrump: 4🪵\nOpp: 2🏆\nPlayed:\n- 🪙: A\n=== HAND ===\n0:H🪵 \nPick: 0\nAnswer in JSON using this schema:\n{\n  card_index: int,\n}"
+  },
+  "two_cards": {
+    "inputs": {
+      "hand": [
+        "H🪵",
+        "6🏆"
+      ],
+      "briscola": "4🪵",
+      "history": "- 🪙: A",
+      "opponent_card": null
+    },
+    "prompt": "=== STATE ===\nTrump: 4🪵\nPlayed:\n- 🪙: A\n=== HAND ===\n0:H🪵 1:6🏆 \nPick: 0,1\nAnswer in JSON using this schema:\n{\n  card_index: int,\n}"
+  }
+}

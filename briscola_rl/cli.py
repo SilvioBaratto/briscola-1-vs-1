@@ -624,7 +624,7 @@ Examples:
     train_parser.add_argument("--device", type=str, default="cpu", help="Device (cpu/cuda/mps)")
     train_parser.add_argument("--save-dir", type=str, default="checkpoints", help="Save directory")
     train_parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    train_parser.add_argument("--llm-timeout", type=float, default=5.0, help="LLM timeout (seconds)")
+    train_parser.add_argument("--llm-timeout", type=float, default=60.0, help="LLM timeout (seconds)")
     train_parser.set_defaults(func=cmd_train)
 
     # Evaluate command
