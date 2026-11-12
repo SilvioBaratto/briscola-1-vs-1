@@ -4,7 +4,7 @@
 
 L'agente è `checkpoints/final_model.pt` (rete PPO già addestrata, mossa sempre la più probabile). L'avversario è `gemma4:31b-cloud` servito da Ollama e chiamato solo con LangChain, temperatura 0,1. Il mazzo della partita *i* si mescola con il seme 42 + *i*, e l'agente apre le partite pari, il modello le dispari: 100 partite aperte dall'agente e 100 dal modello. Al modello arriva solo il prompt della mossa (briscola, carta dell'avversario, carte già uscite, mano): le regole del gioco non gli vengono spiegate.
 
-Ogni numero ha accanto il comando che lo ricalcola dai file in `results/partite/`. Rilanciando la valutazione i mazzi e chi apre sono gli stessi, ma il modello è un servizio remoto e può rispondere in modo un po' diverso: le mosse, e quindi i punteggi, possono cambiare di poco.
+Ogni numero ha accanto il comando che lo ricalcola dai file in `results/partite/`. Rilanciando la valutazione i mazzi e chi apre sono gli stessi, ma il modello è un servizio remoto e può rispondere in modo diverso: rigiocando, alcune partite escono identiche e altre cambiano mosse e, a catena, anche di molto il punteggio. Il risultato di una singola partita non è quindi garantito uguale.
 
 ## In una frase
 

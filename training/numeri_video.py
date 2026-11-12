@@ -492,7 +492,8 @@ def build_report(s: Stats, results_dir: str = "results") -> str:
     add(
         "Ogni numero ha accanto il comando che lo ricalcola dai file in "
         f"`{results_dir}/{GAMES_DIR}/`. Rilanciando la valutazione i mazzi e chi apre sono gli stessi, "
-        "ma il modello è un servizio remoto e può rispondere in modo un po' diverso: le mosse, e quindi i punteggi, possono cambiare di poco."
+        "ma il modello è un servizio remoto e può rispondere in modo diverso: rigiocando, alcune partite escono identiche e altre cambiano mosse "
+        "e, a catena, anche di molto il punteggio. Il risultato di una singola partita non è quindi garantito uguale."
     )
     add("")
     add("## In una frase")
